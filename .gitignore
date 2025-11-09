@@ -1,0 +1,10 @@
+*.user
+*.suo
+*.csproj
+bin/
+obj/
+.vscode/
+.idea/
+*.tmp
+*.log
+oxide/logs/
