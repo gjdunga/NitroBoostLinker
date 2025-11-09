@@ -1,0 +1,113 @@
+{
+  "name": "NitroBoostLinker",
+  "title": "Nitro Boost Linker",
+  "version": "1.5.0",
+  "author": "gjdunga",
+  "license": "MIT",
+  "description": "Grants the NitroBoost permission when a linked Discord user is actively boosting the guild (premium_since) or has a Booster role. Hard-fails unless Image Library + Rust Kits + Custom Auto Kits are installed and Discord is configured.",
+  "games": ["rust"],
+  "language": "csharp",
+  "website": "REPO_URL_HERE",
+  "source": "REPO_URL_HERE",
+  "documentation": "REPO_URL_HERE#readme",
+  "issues": "REPO_URL_HERE/issues",
+  "screenshots": [],
+  "categories": ["Administration", "Chat", "Economy", "Items", "Kits", "Permissions", "Discord"],
+  "permissions": [
+    {
+      "name": "NitroBoost",
+      "description": "Granted automatically to players who qualify via Nitro boost or Booster role. Use this permission in Custom Auto Kits to unlock VIP kits."
+    }
+  ],
+  "commands": [
+    {
+      "command": "nitrolink",
+      "arguments": "[DiscordUserID|help]",
+      "description": "Start Discord link flow (or show help with links to required dependencies). Usable by players."
+    },
+    {
+      "command": "nitroverify",
+      "arguments": "<CODE>",
+      "description": "Complete Discord link verification using the code DM’d by the bot."
+    },
+    {
+      "command": "nitrostatus",
+      "arguments": "",
+      "description": "Show the player’s current link/boost status."
+    },
+    {
+      "command": "nitroresync",
+      "arguments": "[player]",
+      "description": "Admin-only. Re-check boost/role status for one player or all linked players."
+    },
+    {
+      "command": "nitrodiscordbotlink",
+      "arguments": "<BotToken> <GuildId> [BoosterRoleId|RoleName]",
+      "description": "Admin/console/RCON. Configure Discord bot credentials and optional Booster role without editing files."
+    },
+    {
+      "command": "nitrodiag",
+      "arguments": "",
+      "description": "Admin/console/RCON. Print dependency/config health and write to oxide/logs/NitroBoostLinker.txt."
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "Image Library",
+      "id": "image-library",
+      "url": "https://umod.org/plugins/image-library",
+      "required": true,
+      "version": "latest"
+    },
+    {
+      "name": "Rust Kits",
+      "id": "rust-kits",
+      "url": "https://umod.org/plugins/rust-kits",
+      "required": true,
+      "version": "latest"
+    },
+    {
+      "name": "Custom Auto Kits",
+      "id": "custom-auto-kits",
+      "url": "https://umod.org/plugins/custom-auto-kits",
+      "required": true,
+      "version": "latest"
+    }
+  ],
+  "compatibility": {
+    "oxide": "2.x",
+    "game_versions": ["latest"]
+  },
+  "security": {
+    "network": [
+      "https://discord.com/api/*"
+    ],
+    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). No webhooks or inbound listeners."
+  },
+  "files": [
+    {
+      "path": "oxide/plugins/NitroBoostLinker.cs",
+      "role": "plugin"
+    },
+    {
+      "path": "LICENSE",
+      "role": "license"
+    },
+    {
+      "path": "README.md",
+      "role": "readme"
+    },
+    {
+      "path": "INSTALL.md",
+      "role": "documentation"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "role": "changelog"
+    },
+    {
+      "path": "oxide/config/NitroBoostLinker.json",
+      "role": "config-sample"
+    }
+  ]
+}
