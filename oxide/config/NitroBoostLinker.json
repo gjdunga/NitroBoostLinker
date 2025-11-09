@@ -1,0 +1,31 @@
+###########################################################################
+### THIS IS A SAMPLE FILE REMOVE THIS TEXT AND CONFIGURE AS REQUIRED    ###
+###########################################################################
+
+{
+  "DiscordBotToken": "PUT_YOUR_BOT_TOKEN_HERE",
+  "DiscordGuildId": 0,
+  "OxidePermissionName": "NitroBoost",
+  "AlsoCreateOxideGroup": true,
+  "OxideGroupName": "NitroBoost",
+  "GrantGroupIfExistsOnly": true,
+  "TreatPremiumSinceAsBoost": true,
+  "UseBoosterRoleCheck": true,
+  "BoosterRoleId": 0,
+  "BoosterRoleName": "",
+  "VerificationCodeLength": 6,
+  "VerificationCodeTTLSeconds": 600,
+  "RevalidationIntervalMinutes": 60,
+  "RateLimitPerPlayerPerMinute": 6,
+  "DiscordApiBase": "https://discord.com/api/v10",
+  "HttpTimeoutSeconds": 15,
+  "SendDMTemplate": "Your Rust verification code is: **{CODE}**\\nReturn to the server and run: `/nitroverify {CODE}`",
+  "DebugLogging": false,
+  "ImageLibraryPluginNames": ["ImageLibrary", "Image Library", "image-library"],
+  "RustKitsPluginNames": ["Kits", "Rust Kits", "rust-kits"],
+  "CustomAutoKitsPluginNames": ["Custom Auto Kits", "CustomAutoKits", "custom-auto-kits"],
+  "HardFailMessage_ImageLibraryMissing": "[NitroBoostLinker] HARD-FAIL: Image Library is not installed/loaded. Rust Kits depends on it. Install https://umod.org/plugins/image-library.",
+  "HardFailMessage_RustKitsMissing": "[NitroBoostLinker] HARD-FAIL: Rust Kits is not installed/loaded. Install https://umod.org/plugins/rust-kits.",
+  "HardFailMessage_CAKMissing": "[NitroBoostLinker] HARD-FAIL: Custom Auto Kits is not installed/loaded. Install https://umod.org/plugins/custom-auto-kits and configure a kit with permission 'NitroBoost'.",
+  "HardFailMessage_DiscordNotConfigured": "[NitroBoostLinker] HARD-FAIL: Discord bot token and/or guild ID are not configured. Use /nitrodiscordbotlink <BotToken> <GuildId> [BoosterRoleId|RoleName] from console/RCON/in-game (admin)."
+}
