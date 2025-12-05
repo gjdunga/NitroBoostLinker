@@ -1,24 +1,41 @@
-# Changelog — Nitro Boost Linker
+Changelog
 
-## 1.5.0 — Required links in help + Install guide (2025-11-09)
-- **Added** clickable **required plugin URLs** in `/nitrolink help`.
-- **Added** `INSTALL.md` with detailed, link-rich setup flow.
-- **Polish**: tightened help text, kept help available even when hard-disabled.
-- **Docs**: updated README to point to INSTALL and CHANGELOG.
+All notable changes to Nitro Boost Linker will be documented in this file.
 
-## 1.4.0 — Image Library hard requirement
-- **Added** hard-fail check for **Image Library** (required by Rust Kits).
-- **Diagnostics**: `/nitrodiag` now shows Image Library status.
-- **Logging**: failures bark to server console, Oxide global log, and plugin log file.
+1.5.2 — 2025‑12‑05
 
-## 1.3.0 — Diagnostics + RCON setup + approval-friendly refactor
-- **New** admin commands:
-  - `/nitrodiag` prints dependency health and configuration.
-  - `/nitrodiscordbotlink <BotToken> <GuildId> [BoosterRoleId|RoleName]` for live Discord setup.
-- **Hard-fail** if **Rust Kits**, **Custom Auto Kits**, or **Discord config** are missing.
-- **Help stays open**: `/nitrolink help` works even while disabled.
-- **Logging**: consistent error messages to all logging surfaces.
-- **Config**: typed JSON config with safe defaults and future-proof fields.
+Bumped version and author metadata to 1.5.2 (Gabriel).
 
-## 1.2.x and earlier — Internal drafts
-- Initial MVP: link/verify flow, Nitro boost (premium_since) + Booster role checks, and permission grant/revoke for `NitroBoost`.
+Consolidated improvements introduced in 1.5.1:
+
+Added OnServerInitialized, OnPluginLoaded and OnPluginUnloaded hooks to better handle dependency load order.
+
+Improved dependency checking and automatic re‑evaluation when required plugins load or unload.
+
+Hardened rate limiting, DM sending and Discord API error handling.
+
+Added display metadata (DisplayVersion and DisplayAuthor) for cleaner help output.
+
+No functional changes from 1.5.1 beyond the version and author update.
+
+1.5.1 — 2025‑MM‑DD
+
+Introduced robust load‑order handling to re‑evaluate prerequisites after server initialization and when plugins load/unload.
+
+Refactored configuration loading, saving, and default values.
+
+Improved help output, diagnostics formatting, and logging.
+
+Added support for dynamic booster role resolution by name if an ID is not provided.
+
+Strengthened rate limiting, pending code storage, and data persistence.
+
+1.5.0 — 2025‑MM‑DD
+
+Initial public release of Nitro Boost Linker.
+
+Links Discord users to Steam players via verification codes.
+
+Grants NitroBoost permission and optional Oxide group when a linked user boosts your guild or has the Booster role.
+
+Provides commands for linking, verifying, checking status, resyncing, configuring the bot, and diagnostics.
