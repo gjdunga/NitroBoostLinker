@@ -1,33 +1,73 @@
-# Installation Guide — Nitro Boost Linker
+Installation Guide
 
-This plugin grants the `NitroBoost` permission to players who are verified Discord Nitro boosters of your guild (via `premium_since`) **or** who hold a configured Booster role. It integrates with **Custom Auto Kits** and **Rust Kits**.
+Follow these steps to install Nitro Boost Linker on your Rust server with uMod (Oxide):
 
-## Prerequisites (Install these first)
-- **Image Library** — https://umod.org/plugins/image-library
-- **Rust Kits** — https://umod.org/plugins/rust-kits
-- **Custom Auto Kits** — https://umod.org/plugins/custom-auto-kits
-- A Discord **bot** added to your guild, with a **bot token** and the bot able to DM users.
+Download the plugin
 
-> The plugin will **hard-fail** and clearly bark in logs if any of these are missing.
+Copy the NitroBoostLinker.cs file from this repository into your server's oxide/plugins/ directory.
 
-## Steps
-1. Place `NitroBoostLinker.cs` into `oxide/plugins/`.
-2. Make sure the three prerequisite plugins are installed and loaded.
-3. Set up Discord via console or RCON:
-   nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678
-   # Optional: include Booster role by ID OR name:
-   nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678 987654321098765432
-   # or
-   nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678 BoosterRoleName
-4. Create/adjust your Custom Auto Kits VIP kit to require permission NitroBoost.
-5. Players link via: /nitrolink <DiscordUserID>   /nitroverify <CODE>
-6.Use /nitrostatus, /nitroresync, and /nitrodiag for visibility and maintenance.
+Install required dependencies
 
-Troubleshooting
+Ensure the following plugins are installed and loaded on your server:
 
-Run /nitrodiag (console/RCON or in-game as admin) to see current dependency status.
+Image Library
+ (ImageLibrary)
 
-Check logs at oxide/logs/NitroBoostLinker.txt plus your server console log for bark messages.
+Rust Kits
+ (Kits)
 
-Ensure the bot can DM users (user privacy settings, mutual server, etc.).
+Custom Auto Kits
+ (CustomAutoKits)
 
+These plugins can be installed via the uMod website or by copying their .cs files into oxide/plugins/.
+
+Add your Discord bot to the guild
+
+Create a Discord bot via the Discord Developer Portal
+.
+
+Add the bot to your Discord guild and grant it permissions to view members, manage roles (if using booster roles), and send DMs.
+
+Configure the plugin via command
+
+In console, RCON, or in‑game as an admin, run the following command to link your bot:
+
+/nitrodiscordbotlink <BotToken> <GuildId> [BoosterRoleId|RoleName]
+
+
+<BotToken> is your bot's token from the Discord Developer Portal.
+
+<GuildId> is the numerical ID of your Discord server. You can copy it by enabling Developer Mode and right‑clicking your server.
+
+[BoosterRoleId|RoleName] is optional. Specify either the ID or the name of a role that counts as a booster. If omitted, only Nitro boosters (premium_since) qualify.
+
+Example:
+
+/nitrodiscordbotlink MTAxOTAwOTM3Mzg1NzYyMzQ1NDE2 123456789012345678 987654321098765432
+
+
+Set up your VIP kit
+
+In Custom Auto Kits, create or edit the kit you want to grant to Nitro boosters. Set its required permission to NitroBoost (exact casing).
+
+Player linking process
+
+Players must link their Discord accounts to receive the permission:
+
+In Discord, enable Developer Mode and copy their User ID (right‑click their avatar → Copy User ID).
+
+In game chat, run /nitrolink <DiscordUserID>.
+
+They will receive a DM from your bot with a verification code. Run /nitroverify <CODE> in game to complete the link.
+
+Verify and troubleshoot
+
+Use /nitrostatus to check a player's link and boost status.
+
+Use /nitroresync [player] to force re‑validation for one or all players.
+
+Use /nitrodiag to print diagnostics (dependency status, configuration, etc.) to chat and log file.
+
+Updating
+
+To update, replace the old NitroBoostLinker.cs with the latest version and run oxide.reload NitroBoostLinker in console/RCON. Configuration and link data are preserved across updates.
