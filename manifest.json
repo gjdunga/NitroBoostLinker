@@ -1,7 +1,7 @@
 {
   "name": "NitroBoostLinker",
   "title": "Nitro Boost Linker",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "author": "Gabriel",
   "license": "MIT",
   "description": "Grants the NitroBoost permission when a linked Discord user is actively boosting the guild (premium_since) or has a Booster role. Hard-fails unless Image Library + Rust Kits + Custom Auto Kits are installed and Discord is configured.",
@@ -82,12 +82,32 @@
     "network": [
       "https://discord.com/api/*"
     ],
-    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). No webhooks or inbound listeners. Bot token is stored in the Oxide config file. Restrict console and RCON access to prevent token exposure when using /nitrodiscordbotlink."
+    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). DiscordApiBase is validated to begin with 'https://discord.com' at load time to prevent SSRF. Bot token is stored in the Oxide config file. Restrict console and RCON access to prevent token exposure when using /nitrodiscordbotlink."
+  },
+  "localization": {
+    "default": "en",
+    "supported": ["en", "ru", "es", "la"]
   },
   "files": [
     {
       "path": "oxide/plugins/NitroBoostLinker.cs",
       "role": "plugin"
+    },
+    {
+      "path": "oxide/lang/en/NitroBoostLinker.json",
+      "role": "lang"
+    },
+    {
+      "path": "oxide/lang/ru/NitroBoostLinker.json",
+      "role": "lang"
+    },
+    {
+      "path": "oxide/lang/es/NitroBoostLinker.json",
+      "role": "lang"
+    },
+    {
+      "path": "oxide/lang/la/NitroBoostLinker.json",
+      "role": "lang"
     },
     {
       "path": "LICENSE",

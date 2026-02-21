@@ -1,6 +1,6 @@
 name: Nitro Boost Linker
 author: gjdunga
-version: 1.5.4
+version: 1.5.5
 description: Grants NitroBoost permission when a linked Discord user is boosting or has a Booster role. Hard-fails unless Image Library + Rust Kits + Custom Auto Kits are installed and Discord is configured. Includes /nitrodiag.
 language: C#
 game: rust

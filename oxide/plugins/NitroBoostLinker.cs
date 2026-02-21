@@ -3,8 +3,21 @@
 //
 // Grants the NitroBoost Oxide permission when a linked Discord user is actively
 // boosting the guild (premium_since) or has a configured Booster role.
+//
 // Hard-fails if Image Library, Rust Kits, Custom Auto Kits, or Discord credentials
 // are missing. Includes /nitrodiag for live health reporting.
+//
+// SECURITY MODEL:
+//   - Bot token is stored in oxide/config/NitroBoostLinker.json (plaintext).
+//     Restrict file-system and RCON/console access on the host.
+//   - /nitrodiscordbotlink passes the token as a console argument; Oxide logs all
+//     console commands verbatim. Rotate the token if log access is not restricted.
+//   - DiscordApiBase is validated to begin with "https://discord.com" at load time
+//     to prevent SSRF via a poisoned config file.
+//   - HTTP response bodies are NOT written to logs even in debug mode; only the
+//     HTTP status code is logged to avoid leaking Discord user PII.
+//   - Verification codes are generated with RNGCryptoServiceProvider over an
+//     alphabet of length 32 (divides 256 evenly — zero modulo bias).
 
 using System;
 using System.Collections.Generic;
@@ -20,22 +33,22 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("Nitro Boost Linker", "Gabriel", "1.5.4")]
+    [Info("Nitro Boost Linker", "Gabriel", "1.5.5")]
     [Description("Grants NitroBoost permission when a linked Discord user is boosting or has a Booster role. Hard-fails on missing prerequisites. Includes /nitrodiag and verbose logging.")]
     public class NitroBoostLinker : CovalencePlugin
     {
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // CONSTANTS
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
-        private const string DisplayVersion = "1.5.4";
+        private const string DisplayVersion = "1.5.5";
         private const string DisplayAuthor  = "Gabriel — MIT License";
 
         private const string UrlImageLibrary = "https://umod.org/plugins/image-library";
         private const string UrlRustKits     = "https://umod.org/plugins/rust-kits";
         private const string UrlCustomKits   = "https://umod.org/plugins/custom-auto-kits";
 
-        /// <summary>Oxide data file for confirmed Steam↔Discord links.</summary>
+        /// <summary>Oxide data file for confirmed Steam-to-Discord links.</summary>
         private const string LinksFile   = "NitroBoostLinker_Links";
         /// <summary>Oxide data file for pending (unverified) link attempts.</summary>
         private const string PendingFile = "NitroBoostLinker_Pending";
@@ -45,13 +58,22 @@ namespace Oxide.Plugins
         /// <summary>
         /// Characters used in generated verification codes.
         /// Excludes visually ambiguous characters: 0, O, 1, I.
-        /// Length 32 divides 256 evenly — zero modulo bias.
+        /// Length 32 divides 256 evenly — zero modulo bias when used with byte % length.
         /// </summary>
         private const string CodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-        // ──────────────────────────────────────────────────────────────
+        /// <summary>
+        /// The only origin prefix accepted for DiscordApiBase.
+        /// Validated at load time to prevent SSRF via a poisoned config file.
+        /// </summary>
+        private const string DiscordApiOrigin = "https://discord.com";
+
+        /// <summary>Maximum allowed value for VerificationCodeLength to prevent allocation abuse.</summary>
+        private const int MaxCodeLength = 32;
+
+        // ─────────────────────────────────────────────────────────────────────────
         // PLUGIN REFERENCES (null when dependency is not loaded)
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>Image Library — indirect dependency required by Rust Kits.</summary>
         [PluginReference] private Plugin ImageLibrary;
@@ -60,55 +82,55 @@ namespace Oxide.Plugins
         /// <summary>Custom Auto Kits — auto-grants kits based on Oxide permissions.</summary>
         [PluginReference] private Plugin CustomAutoKits;
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // HARD-DISABLE STATE
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// When true, all player-facing commands are blocked and the reason is
-        /// logged and relayed to any admin who attempts to use the plugin.
-        /// Set true by default until OnServerInitialized() clears prerequisites.
+        /// When true, all player-facing commands are blocked and the reason is logged
+        /// and relayed to any admin who attempts to use the plugin.
+        /// Set true by default until OnServerInitialized clears prerequisites.
         /// </summary>
         private bool   _hardDisabled       = true;
         private string _hardDisabledReason = "Not initialized";
 
         /// <summary>
-        /// Tracks every bark timer created by StartBarkTimer().
-        /// SECURITY FIX: These are destroyed before new timers are created in
-        /// ReevaluateHardFailPrereqs(), preventing timer accumulation when
-        /// OnPluginLoaded / OnPluginUnloaded fire repeatedly.
+        /// Tracks every bark timer created by StartBarkTimer.
+        /// SECURITY: These are destroyed before new timers are created in
+        /// ReevaluateHardFailPrereqs, preventing timer accumulation when
+        /// OnPluginLoaded / OnPluginUnloaded fire repeatedly on plugin-reload-heavy servers.
         /// </summary>
         private readonly List<Timer> _barkTimers = new List<Timer>();
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // CONFIGURATION
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         private PluginConfig _config;
 
         private class PluginConfig
         {
-            // ── Discord / guild ──────────────────────────────────────
+            // Discord / guild
             /// <summary>Discord bot token. Keep this secret; do not commit to version control.</summary>
             [JsonProperty("DiscordBotToken")]   public string DiscordBotToken   = string.Empty;
             /// <summary>Numerical ID of the Discord guild to check membership against.</summary>
             [JsonProperty("DiscordGuildId")]    public ulong  DiscordGuildId    = 0;
 
-            // ── Oxide permission / group ─────────────────────────────
+            // Oxide permission / group
             /// <summary>Oxide permission name granted to qualifying boosters.</summary>
             [JsonProperty("OxidePermissionName")]    public string OxidePermissionName    = "NitroBoost";
             /// <summary>Whether to also add the player to an Oxide group.</summary>
             [JsonProperty("AlsoCreateOxideGroup")]   public bool   AlsoCreateOxideGroup   = true;
-            /// <summary>Name of the Oxide group to assign (requires AlsoCreateOxideGroup=true).</summary>
+            /// <summary>Name of the Oxide group to assign (requires AlsoCreateOxideGroup true).</summary>
             [JsonProperty("OxideGroupName")]         public string OxideGroupName         = "NitroBoost";
             /// <summary>
-            /// If true, only add players to the group when it already exists.
-            /// If false, the plugin creates the group automatically.
+            /// When true, the plugin only adds players to the group if it already exists.
+            /// When false, the group is created automatically at startup.
             /// </summary>
             [JsonProperty("GrantGroupIfExistsOnly")] public bool   GrantGroupIfExistsOnly = true;
 
-            // ── Boost / role detection ───────────────────────────────
-            /// <summary>Treat a non-null premium_since field on the guild member as an active boost.</summary>
+            // Boost / role detection
+            /// <summary>Treat a non-null premium_since on the guild member as an active boost.</summary>
             [JsonProperty("TreatPremiumSinceAsBoost")] public bool   TreatPremiumSinceAsBoost = true;
             /// <summary>Also check whether the member has a designated Booster role.</summary>
             [JsonProperty("UseBoosterRoleCheck")]      public bool   UseBoosterRoleCheck      = true;
@@ -117,25 +139,29 @@ namespace Oxide.Plugins
             /// <summary>Discord role name to resolve at runtime when BoosterRoleId is 0.</summary>
             [JsonProperty("BoosterRoleName")]          public string BoosterRoleName          = string.Empty;
 
-            // ── Verification flow ────────────────────────────────────
-            /// <summary>Length of generated one-time verification codes.</summary>
+            // Verification flow
+            /// <summary>Length of generated one-time verification codes (1 to 32).</summary>
             [JsonProperty("VerificationCodeLength")]     public int VerificationCodeLength     = 6;
             /// <summary>Seconds before a pending verification code expires.</summary>
             [JsonProperty("VerificationCodeTTLSeconds")] public int VerificationCodeTTLSeconds = 600;
 
-            // ── Scheduling ───────────────────────────────────────────
-            /// <summary>How often (in minutes) all linked players are re-checked for boost/role status.</summary>
+            // Scheduling
+            /// <summary>How often in minutes all linked players are re-checked for boost / role status.</summary>
             [JsonProperty("RevalidationIntervalMinutes")] public int RevalidationIntervalMinutes = 60;
-            /// <summary>Maximum commands per player per 60-second window. Console/RCON is exempt.</summary>
+            /// <summary>Maximum commands per player per 60-second window. Console / RCON is exempt.</summary>
             [JsonProperty("RateLimitPerPlayerPerMinute")] public int RateLimitPerPlayerPerMinute = 6;
 
-            // ── Discord API ──────────────────────────────────────────
-            /// <summary>Discord REST API base URL. Do not change unless Discord updates their API version.</summary>
+            // Discord API
+            /// <summary>
+            /// Discord REST API base URL. Must start with "https://discord.com".
+            /// SECURITY: The plugin validates this prefix at load time to prevent SSRF.
+            /// Do not change unless Discord updates their API version.
+            /// </summary>
             [JsonProperty("DiscordApiBase")]     public string DiscordApiBase     = "https://discord.com/api/v10";
             /// <summary>HTTP timeout in seconds for all Discord API calls.</summary>
             [JsonProperty("HttpTimeoutSeconds")] public int    HttpTimeoutSeconds = 15;
 
-            // ── DM template ──────────────────────────────────────────
+            // DM template
             /// <summary>
             /// Template for the verification DM sent to the Discord user.
             /// {CODE} is replaced with the generated one-time code.
@@ -145,11 +171,14 @@ namespace Oxide.Plugins
                 "Your Rust verification code is: **{CODE}**\n" +
                 "Return to the server and run: `/nitroverify {CODE}`";
 
-            // ── Diagnostics ──────────────────────────────────────────
-            /// <summary>When true, HTTP errors and parse failures are written to the log file.</summary>
+            // Diagnostics
+            /// <summary>
+            /// When true, HTTP error status codes are written to the log file.
+            /// Response bodies are NEVER logged regardless of this setting to protect Discord user PII.
+            /// </summary>
             [JsonProperty("DebugLogging")] public bool DebugLogging = false;
 
-            // ── Dependency name aliases ──────────────────────────────
+            // Dependency name aliases
             // These arrays let the plugin find dependencies even when plugin authors
             // vary the display name. All entries are probed via plugins.Find().
             [JsonProperty("ImageLibraryPluginNames")]
@@ -173,6 +202,7 @@ namespace Oxide.Plugins
             {
                 _config = Config.ReadObject<PluginConfig>();
                 if (_config == null) throw new Exception("Config deserialized as null.");
+                NormalizeConfig();
             }
             catch (Exception e)
             {
@@ -181,13 +211,154 @@ namespace Oxide.Plugins
             }
         }
 
+        /// <summary>
+        /// Clamps or corrects config values that could cause runtime problems if set to
+        /// extreme values in the JSON file.
+        ///
+        /// SECURITY: DiscordApiBase is validated to begin with the Discord origin to prevent
+        /// SSRF. A server operator with write access to the config file cannot redirect the
+        /// plugin's HTTP calls to internal network addresses.
+        /// </summary>
+        private void NormalizeConfig()
+        {
+            if (string.IsNullOrWhiteSpace(_config.OxidePermissionName))
+                _config.OxidePermissionName = "NitroBoost";
+
+            if (string.IsNullOrWhiteSpace(_config.OxideGroupName))
+                _config.OxideGroupName = "NitroBoost";
+
+            _config.VerificationCodeLength = Math.Max(4, Math.Min(MaxCodeLength, _config.VerificationCodeLength));
+            _config.VerificationCodeTTLSeconds   = Math.Max(60, _config.VerificationCodeTTLSeconds);
+            _config.RevalidationIntervalMinutes  = Math.Max(5, _config.RevalidationIntervalMinutes);
+            _config.RateLimitPerPlayerPerMinute  = Math.Max(1, _config.RateLimitPerPlayerPerMinute);
+            _config.HttpTimeoutSeconds           = Math.Max(5, Math.Min(60, _config.HttpTimeoutSeconds));
+
+            if (string.IsNullOrWhiteSpace(_config.DiscordApiBase))
+                _config.DiscordApiBase = "https://discord.com/api/v10";
+
+            if (!_config.DiscordApiBase.StartsWith(DiscordApiOrigin, StringComparison.OrdinalIgnoreCase))
+            {
+                LogWarning($"DiscordApiBase '{_config.DiscordApiBase}' does not start with '{DiscordApiOrigin}'. " +
+                           "Resetting to default to prevent SSRF.");
+                _config.DiscordApiBase = "https://discord.com/api/v10";
+            }
+        }
+
         private void SaveConfigTyped() => Config.WriteObject(_config, true);
 
-        // ──────────────────────────────────────────────────────────────
-        // DATA MODELS
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
+        // LOCALIZATION
+        // ─────────────────────────────────────────────────────────────────────────
 
-        /// <summary>Persisted record for a confirmed Steam↔Discord link.</summary>
+        /// <summary>
+        /// Keys for all player-facing messages. All values default to English.
+        /// Translators: create oxide/lang/{locale}/NitroBoostLinker.json with these keys.
+        /// </summary>
+        private static class Msg
+        {
+            public const string HelpText            = "HelpText";
+            public const string HardDisabledNotice  = "HardDisabledNotice";
+            public const string UsageNitroLink      = "UsageNitroLink";
+            public const string InvalidDiscordId    = "InvalidDiscordId";
+            public const string AlreadyLinked       = "AlreadyLinked";
+            public const string DmFailed            = "DmFailed";
+            public const string DmSent              = "DmSent";
+            public const string UsageNitroVerify    = "UsageNitroVerify";
+            public const string InvalidCode         = "InvalidCode";
+            public const string CodeOwnerMismatch   = "CodeOwnerMismatch";
+            public const string CodeExpired         = "CodeExpired";
+            public const string ApiError            = "ApiError";
+            public const string StatusLinked        = "StatusLinked";
+            public const string StatusNotLinked     = "StatusNotLinked";
+            public const string AdminOnly           = "AdminOnly";
+            public const string PlayerNotFound      = "PlayerNotFound";
+            public const string ResyncSuccess       = "ResyncSuccess";
+            public const string ResyncFailed        = "ResyncFailed";
+            public const string ResyncQueued        = "ResyncQueued";
+            public const string UsageBotLink        = "UsageBotLink";
+            public const string BadGuildId          = "BadGuildId";
+            public const string BotLinkFailed       = "BotLinkFailed";
+            public const string BotLinkSaved        = "BotLinkSaved";
+            public const string BotLinkStillOff     = "BotLinkStillOff";
+            public const string BotLinkEnabled      = "BotLinkEnabled";
+            public const string RateLimit           = "RateLimit";
+            public const string QualifiedBoost      = "QualifiedBoost";
+            public const string QualifiedRole       = "QualifiedRole";
+            public const string NotQualified        = "NotQualified";
+            public const string TokenWarning        = "TokenWarning";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Msg.HelpText] =
+                    "--- Nitro Boost Linker v{version} ---\n" +
+                    "Author: {author}\n\n" +
+                    "Required plugins:\n" +
+                    "  Image Library    {urlImageLib}\n" +
+                    "  Rust Kits        {urlKits}\n" +
+                    "  Custom Auto Kits {urlCustomKits}\n\n" +
+                    "Steps:\n" +
+                    "  1) Discord: Settings > Advanced > Developer Mode ON\n" +
+                    "     Right-click your avatar > Copy User ID\n" +
+                    "  2) /nitrolink <DiscordUserID>\n" +
+                    "  3) Check DM from bot for your code\n" +
+                    "  4) /nitroverify <CODE>\n\n" +
+                    "VIP granted when:\n" +
+                    "  - You are actively boosting the guild (premium_since), OR\n" +
+                    "  - You have the configured Booster role\n\n" +
+                    "Check status: /nitrostatus",
+
+                [Msg.HardDisabledNotice]  = "[DISABLED] {reason}",
+                [Msg.UsageNitroLink]      = "Usage: /nitrolink <DiscordUserID>  |  /nitrolink help",
+                [Msg.InvalidDiscordId]    = "Invalid Discord User ID — must be a non-zero number.",
+                [Msg.AlreadyLinked]       = "Already linked to Discord ID {discordId}. Ask an admin to /nitroresync if your boost status changed.",
+                [Msg.DmFailed]            = "Could not DM that Discord user. Verify the ID and ensure the user allows DMs from server members and bots.",
+                [Msg.DmSent]             = "Verification code sent via DM to {discordId}. Run /nitroverify <CODE> within {minutes} minute(s).",
+                [Msg.UsageNitroVerify]    = "Usage: /nitroverify <CODE>",
+                [Msg.InvalidCode]         = "Invalid or expired code. Run /nitrolink <DiscordUserID> again.",
+                [Msg.CodeOwnerMismatch]   = "This code does not belong to your account.",
+                [Msg.CodeExpired]         = "Code expired. Run /nitrolink <DiscordUserID> again.",
+                [Msg.ApiError]            = "Could not verify guild status right now. Try again in a moment.",
+                [Msg.StatusLinked]        =
+                    "Discord ID   : {discordId}\n" +
+                    "Boost/Role   : {boosting}\n" +
+                    "Premium Since: {premiumSince}\n" +
+                    "Last Checked : {lastChecked}",
+                [Msg.StatusNotLinked]     = "Not linked. Run /nitrolink help to get started.",
+                [Msg.AdminOnly]           = "Admin or console only.",
+                [Msg.PlayerNotFound]      = "Player not found.",
+                [Msg.ResyncSuccess]       = "Resynced {name}.",
+                [Msg.ResyncFailed]        = "Resync failed for {name} (no link record or API error).",
+                [Msg.ResyncQueued]        = "Queued resync for {count} linked player(s).",
+                [Msg.UsageBotLink]        = "Usage: /nitrodiscordbotlink <BotToken> <GuildId> [BoosterRoleId|RoleName]",
+                [Msg.BadGuildId]          = "GuildId must be a non-zero integer.",
+                [Msg.BotLinkFailed]       = "Discord validation failed. Verify the bot token is correct, the bot is in the guild, and the guild ID is right.",
+                [Msg.BotLinkSaved]        = "Discord credentials saved and validated. GuildId={guildId}.",
+                [Msg.BotLinkStillOff]     = "Still disabled: {reason}",
+                [Msg.BotLinkEnabled]      = "Plugin is now ENABLED.",
+                [Msg.RateLimit]           = "You are sending commands too quickly. Try again in a moment.",
+                [Msg.QualifiedBoost]      = "Linked! Nitro boost detected — {perm} permission granted.",
+                [Msg.QualifiedRole]       = "Linked! Booster role detected — {perm} permission granted.",
+                [Msg.NotQualified]        = "Linked, but no active Nitro boost or Booster role found. The permission will be granted automatically on the next re-check.",
+                [Msg.TokenWarning]        = "[NitroBoostLinker] WARNING: Bot token set via command — visible in server console log. Rotate this token if console access is not restricted to trusted admins.",
+            }, this, "en");
+        }
+
+        /// <summary>Returns a localized message string for the given player.</summary>
+        private string GetMsg(string key, string playerId, params object[] args)
+        {
+            string msg = lang.GetMessage(key, this, playerId);
+            try   { return args.Length > 0 ? string.Format(msg, args) : msg; }
+            catch { return msg; }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // DATA MODELS
+        // ─────────────────────────────────────────────────────────────────────────
+
+        /// <summary>Persisted record for a confirmed Steam-to-Discord link.</summary>
         private class LinkRecord
         {
             [JsonProperty("SteamId")]              public string    SteamId;
@@ -196,6 +367,9 @@ namespace Oxide.Plugins
             [JsonProperty("LastVerifiedUtc")]       public DateTime  LastVerifiedUtc;
             [JsonProperty("IsBoosting")]            public bool      IsBoosting;
             [JsonProperty("LastKnownPremiumSince")] public DateTime? LastKnownPremiumSince;
+
+            /// <summary>Returns true if the record has the minimum required fields populated.</summary>
+            public bool IsValid() => !string.IsNullOrEmpty(SteamId) && DiscordUserId != 0;
         }
 
         /// <summary>Transient record for a pending (unverified) link attempt.</summary>
@@ -206,11 +380,17 @@ namespace Oxide.Plugins
             [JsonProperty("Code")]          public string   Code;
             [JsonProperty("ExpiresUtc")]    public DateTime ExpiresUtc;
             [JsonProperty("CreatedUtc")]    public DateTime CreatedUtc;
+
+            /// <summary>Returns true if the record has the minimum required fields populated.</summary>
+            public bool IsValid() =>
+                !string.IsNullOrEmpty(SteamId)
+                && DiscordUserId != 0
+                && !string.IsNullOrEmpty(Code);
         }
 
         // Confirmed links: SteamId -> LinkRecord
         private Dictionary<string, LinkRecord>    _linked         = new Dictionary<string, LinkRecord>();
-        // Pending by SteamId — one active attempt per player, new attempt replaces old
+        // Pending by SteamId — one active attempt per player; new attempt replaces old
         private Dictionary<string, PendingRecord> _pendingBySteam = new Dictionary<string, PendingRecord>();
         // Pending by code — for O(1) lookup during /nitroverify
         private Dictionary<string, PendingRecord> _pendingByCode  = new Dictionary<string, PendingRecord>();
@@ -221,16 +401,20 @@ namespace Oxide.Plugins
         private ulong    _boosterRoleIdResolved;
         private DateTime _roleCacheTimeUtc = DateTime.MinValue;
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // DISCORD API DTOs
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Result type for CheckMemberBoostOrRole().
-        /// Replaces a C# 7.0 value tuple to ensure compilation on Oxide's build system,
-        /// which targets .NET below 4.7 and does not have System.ValueTuple in the BCL.
-        /// Using value tuple syntax (Action&lt;(bool, DateTime?, bool)?&gt;) causes CS8179:
-        /// "Predefined type 'System.ValueTuple' is not defined or imported."
+        /// Result type for CheckMemberBoostOrRole.
+        /// Uses a plain private class instead of a C# 7.0 value tuple.
+        ///
+        /// REASON: Action-typed callbacks with value tuple parameters such as
+        /// Action&lt;(bool, DateTime?, bool)?&gt; require System.ValueTuple, which is not
+        /// present in the BCL on the .NET target used by Oxide's uMod build servers
+        /// (below .NET 4.7, without a NuGet package reference). This causes CS8179:
+        /// "Predefined type 'System.ValueTuple' is not defined or imported" at compile time.
+        /// A private class compiles cleanly on all Oxide-supported .NET targets.
         /// </summary>
         private class BoostCheckResult
         {
@@ -267,9 +451,9 @@ namespace Oxide.Plugins
             [JsonProperty("name")] public string Name;
         }
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // LIFECYCLE HOOKS
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         private void Init()
         {
@@ -290,18 +474,18 @@ namespace Oxide.Plugins
 
         /// <summary>
         /// Delay prerequisite evaluation until all plugins are fully loaded.
-        /// Calling this in Init() risks false negatives for plugins that load after us.
+        /// Calling in Init risks false negatives for plugins that load after us.
         /// </summary>
         private void OnServerInitialized() => ReevaluateHardFailPrereqs();
 
-        /// <summary>Re-evaluate when a tracked dependency loads.</summary>
+        /// <summary>Re-evaluate prerequisites when a tracked dependency loads.</summary>
         private void OnPluginLoaded(Plugin plugin)
         {
             if (plugin != null && MatchesDependency(plugin.Name))
                 ReevaluateHardFailPrereqs();
         }
 
-        /// <summary>Re-evaluate when a tracked dependency unloads.</summary>
+        /// <summary>Re-evaluate prerequisites when a tracked dependency unloads.</summary>
         private void OnPluginUnloaded(Plugin plugin)
         {
             if (plugin != null && MatchesDependency(plugin.Name))
@@ -314,15 +498,12 @@ namespace Oxide.Plugins
             SaveData();
         }
 
-        // ──────────────────────────────────────────────────────────────
-        // PERMISSIONS & GROUPS
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
+        // PERMISSIONS AND GROUPS
+        // ─────────────────────────────────────────────────────────────────────────
 
         private void RegisterPermissions()
         {
-            if (string.IsNullOrWhiteSpace(_config.OxidePermissionName))
-                _config.OxidePermissionName = "NitroBoost";
-
             permission.RegisterPermission(_config.OxidePermissionName, this);
 
             // Create group at startup only when GrantGroupIfExistsOnly is false
@@ -364,21 +545,22 @@ namespace Oxide.Plugins
                 permission.RemoveUserGroup(steamId, _config.OxideGroupName);
         }
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // HARD-FAIL LOGIC
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Checks all prerequisites. Enables the plugin if all pass, otherwise hard-disables.
+        /// Checks all prerequisites and either enables the plugin or hard-disables it.
         ///
-        /// SECURITY FIX: All bark timers are destroyed before any new ones are created.
-        /// Without this, every OnPluginLoaded/Unloaded cycle that triggers a hard-disable
-        /// would accumulate an additional permanent 300-second timer, causing escalating
-        /// memory use and log flooding on servers that reload plugins frequently.
+        /// SECURITY: All existing bark timers are destroyed before any new ones are
+        /// created. Without this, every OnPluginLoaded / OnPluginUnloaded cycle that
+        /// triggers a hard-disable would accumulate an additional permanent 300-second
+        /// timer, causing unbounded memory growth and log flooding on servers that
+        /// frequently reload plugins.
         /// </summary>
         private void ReevaluateHardFailPrereqs()
         {
-            DestroyBarkTimers(); // Always clear before potentially creating new timers
+            DestroyBarkTimers();
 
             bool imageLib = IsImageLibraryPresent();
             bool rustKits = IsRustKitsPresent();
@@ -434,8 +616,8 @@ namespace Oxide.Plugins
         }
 
         /// <summary>
-        /// Creates a 300-second repeating timer that re-logs the failure message while the
-        /// condition is still true. The timer is tracked in _barkTimers so it can be destroyed.
+        /// Creates a 300-second repeating timer that re-logs the failure message while
+        /// the condition is still true. The timer is tracked in _barkTimers.
         /// </summary>
         private void StartBarkTimer(Func<bool> stillFailing, string message)
         {
@@ -464,14 +646,16 @@ namespace Oxide.Plugins
         private bool BarkIfHardDisabled(IPlayer player)
         {
             if (!_hardDisabled) return false;
-            player?.Reply(_hardDisabledReason);
+            string msg = lang.GetMessage(Msg.HardDisabledNotice, this, player?.Id)
+                             .Replace("{reason}", _hardDisabledReason);
+            player?.Reply(msg);
             LogFailure(_hardDisabledReason);
             return true;
         }
 
         /// <summary>
-        /// Writes to three destinations: Oxide console (PrintError), Oxide global error log,
-        /// and the plugin-specific log file at oxide/logs/NitroBoostLinker.txt.
+        /// Writes to: Oxide console (PrintError), Oxide global error log,
+        /// and oxide/logs/NitroBoostLinker.txt.
         /// </summary>
         private void LogFailure(string message)
         {
@@ -480,9 +664,9 @@ namespace Oxide.Plugins
             LogToFile(LogFile, $"[{DateTime.UtcNow:u}] {message}", this);
         }
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // COMMANDS
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
         /// /nitrolink [DiscordUserID|help]
@@ -496,28 +680,17 @@ namespace Oxide.Plugins
 
             if (args.Length == 1 && args[0].Equals("help", StringComparison.OrdinalIgnoreCase))
             {
-                player.Reply(
-                    $"--- Nitro Boost Linker v{DisplayVersion} ---\n" +
-                    $"Author: {DisplayAuthor}\n\n" +
-                    "Required plugins:\n" +
-                    $"  Image Library    {UrlImageLibrary}\n" +
-                    $"  Rust Kits        {UrlRustKits}\n" +
-                    $"  Custom Auto Kits {UrlCustomKits}\n\n" +
-                    "Steps:\n" +
-                    "  1) Discord: Settings > Advanced > Developer Mode ON\n" +
-                    "     Right-click your avatar > Copy User ID\n" +
-                    "  2) /nitrolink <DiscordUserID>\n" +
-                    "  3) Check DM from bot for your code\n" +
-                    "  4) /nitroverify <CODE>\n\n" +
-                    "VIP granted when:\n" +
-                    "  - You are actively boosting the guild (premium_since), OR\n" +
-                    "  - You have the configured Booster role\n\n" +
-                    "Check status: /nitrostatus"
-                );
+                string help = lang.GetMessage(Msg.HelpText, this, player.Id)
+                    .Replace("{version}",     DisplayVersion)
+                    .Replace("{author}",      DisplayAuthor)
+                    .Replace("{urlImageLib}", UrlImageLibrary)
+                    .Replace("{urlKits}",     UrlRustKits)
+                    .Replace("{urlCustomKits}", UrlCustomKits);
+                player.Reply(help);
 
                 if (_hardDisabled)
-                    player.Reply($"[DISABLED] {_hardDisabledReason}");
-
+                    player.Reply(lang.GetMessage(Msg.HardDisabledNotice, this, player.Id)
+                        .Replace("{reason}", _hardDisabledReason));
                 return;
             }
 
@@ -526,13 +699,13 @@ namespace Oxide.Plugins
 
             if (args.Length != 1)
             {
-                player.Reply("Usage: /nitrolink <DiscordUserID>  |  /nitrolink help");
+                player.Reply(lang.GetMessage(Msg.UsageNitroLink, this, player.Id));
                 return;
             }
 
             if (!ulong.TryParse(args[0], out ulong discordUserId) || discordUserId == 0)
             {
-                player.Reply("Invalid Discord User ID — must be a non-zero number.");
+                player.Reply(lang.GetMessage(Msg.InvalidDiscordId, this, player.Id));
                 return;
             }
 
@@ -540,16 +713,13 @@ namespace Oxide.Plugins
 
             if (_linked.TryGetValue(steamId, out LinkRecord existing))
             {
-                player.Reply(
-                    $"Already linked to Discord ID {existing.DiscordUserId}. " +
-                    "Ask an admin to /nitroresync if your boost status changed."
-                );
+                player.Reply(lang.GetMessage(Msg.AlreadyLinked, this, player.Id)
+                    .Replace("{discordId}", existing.DiscordUserId.ToString()));
                 return;
             }
 
-            // Generate a code that is not already in use (prevents lookup collision)
-            string code = GenerateUniqueCode(_config.VerificationCodeLength);
-            DateTime now = DateTime.UtcNow;
+            string   code = GenerateUniqueCode(_config.VerificationCodeLength);
+            DateTime now  = DateTime.UtcNow;
 
             // Remove any stale pending attempt for this player before inserting new one
             if (_pendingBySteam.TryGetValue(steamId, out PendingRecord old))
@@ -575,18 +745,14 @@ namespace Oxide.Plugins
                     _pendingBySteam.Remove(steamId);
                     _pendingByCode.Remove(code);
                     SaveData();
-                    player.Reply(
-                        "Could not DM that Discord user. " +
-                        "Verify the ID and ensure the user allows DMs from server members/bots."
-                    );
+                    player.Reply(lang.GetMessage(Msg.DmFailed, this, player.Id));
                     return;
                 }
 
                 int minutes = Math.Max(1, _config.VerificationCodeTTLSeconds / 60);
-                player.Reply(
-                    $"Verification code sent via DM to {discordUserId}. " +
-                    $"Run /nitroverify <CODE> within {minutes} minute(s)."
-                );
+                player.Reply(lang.GetMessage(Msg.DmSent, this, player.Id)
+                    .Replace("{discordId}", discordUserId.ToString())
+                    .Replace("{minutes}",   minutes.ToString()));
             });
         }
 
@@ -605,7 +771,7 @@ namespace Oxide.Plugins
 
             if (args.Length != 1)
             {
-                player.Reply("Usage: /nitroverify <CODE>");
+                player.Reply(lang.GetMessage(Msg.UsageNitroVerify, this, player.Id));
                 return;
             }
 
@@ -613,21 +779,21 @@ namespace Oxide.Plugins
 
             if (!_pendingByCode.TryGetValue(code, out PendingRecord pending))
             {
-                player.Reply("Invalid or expired code. Run /nitrolink <DiscordUserID> again.");
+                player.Reply(lang.GetMessage(Msg.InvalidCode, this, player.Id));
                 return;
             }
 
             // Ownership check: prevent one player from using another's code
             if (!string.Equals(pending.SteamId, player.Id, StringComparison.Ordinal))
             {
-                player.Reply("This code does not belong to your account.");
+                player.Reply(lang.GetMessage(Msg.CodeOwnerMismatch, this, player.Id));
                 return;
             }
 
             if (DateTime.UtcNow > pending.ExpiresUtc)
             {
                 CleanupPending(pending);
-                player.Reply("Code expired. Run /nitrolink <DiscordUserID> again.");
+                player.Reply(lang.GetMessage(Msg.CodeExpired, this, player.Id));
                 return;
             }
 
@@ -635,7 +801,7 @@ namespace Oxide.Plugins
             {
                 if (result == null)
                 {
-                    player.Reply("Could not verify guild status right now. Try again in a moment.");
+                    player.Reply(lang.GetMessage(Msg.ApiError, this, player.Id));
                     return;
                 }
 
@@ -658,15 +824,13 @@ namespace Oxide.Plugins
                 if (qualifies)
                 {
                     GrantVip(player.Id);
-                    string reason = result.IsPremiumBoosting ? "Nitro boost detected" : "Booster role detected";
-                    player.Reply($"Linked! {reason} — {_config.OxidePermissionName} permission granted.");
+                    string msgKey = result.IsPremiumBoosting ? Msg.QualifiedBoost : Msg.QualifiedRole;
+                    player.Reply(lang.GetMessage(msgKey, this, player.Id)
+                        .Replace("{perm}", _config.OxidePermissionName));
                 }
                 else
                 {
-                    player.Reply(
-                        "Linked, but no active Nitro boost or Booster role found. " +
-                        "The permission will be granted automatically on the next re-check."
-                    );
+                    player.Reply(lang.GetMessage(Msg.NotQualified, this, player.Id));
                 }
             });
         }
@@ -675,42 +839,43 @@ namespace Oxide.Plugins
         /// /nitrostatus
         ///
         /// Players: Display current link and boost status.
-        /// Shows disabled reason prefix when hard-disabled.
+        /// Prepends the disabled reason when hard-disabled.
         /// </summary>
         private void CmdNitroStatus(IPlayer player, string command, string[] args)
         {
             if (player == null || !player.IsConnected) return;
 
-            string prefix = _hardDisabled ? $"[DISABLED: {_hardDisabledReason}]\n" : string.Empty;
+            string prefix = _hardDisabled
+                ? lang.GetMessage(Msg.HardDisabledNotice, this, player.Id)
+                      .Replace("{reason}", _hardDisabledReason) + "\n"
+                : string.Empty;
 
             if (_linked.TryGetValue(player.Id, out LinkRecord link))
             {
-                player.Reply(
-                    prefix +
-                    $"Discord ID   : {link.DiscordUserId}\n" +
-                    $"Boost/Role   : {(link.IsBoosting ? "Yes" : "No")}\n" +
-                    $"Premium Since: {link.LastKnownPremiumSince?.ToString("u") ?? "n/a"}\n" +
-                    $"Last Checked : {link.LastVerifiedUtc:u}"
-                );
+                player.Reply(prefix + lang.GetMessage(Msg.StatusLinked, this, player.Id)
+                    .Replace("{discordId}",    link.DiscordUserId.ToString())
+                    .Replace("{boosting}",     link.IsBoosting ? "Yes" : "No")
+                    .Replace("{premiumSince}", link.LastKnownPremiumSince?.ToString("u") ?? "n/a")
+                    .Replace("{lastChecked}",  link.LastVerifiedUtc.ToString("u")));
             }
             else
             {
-                player.Reply(prefix + "Not linked. Run /nitrolink help to get started.");
+                player.Reply(prefix + lang.GetMessage(Msg.StatusNotLinked, this, player.Id));
             }
         }
 
         /// <summary>
         /// /nitroresync [player]
         ///
-        /// Admin/console: Force re-check of boost/role status.
-        /// With argument: re-checks one named/ID player.
+        /// Admin / console: Force re-check of boost / role status.
+        /// With argument: re-checks one named / ID player.
         /// Without argument: queues re-check for all linked players.
         /// </summary>
         private void CmdNitroResync(IPlayer player, string command, string[] args)
         {
             if (player != null && !player.IsServer && !player.IsAdmin)
             {
-                player.Reply("Admin or console only.");
+                player.Reply(lang.GetMessage(Msg.AdminOnly, this, player.Id));
                 return;
             }
 
@@ -719,13 +884,18 @@ namespace Oxide.Plugins
             if (args.Length == 1)
             {
                 IPlayer target = FindPlayer(args[0]);
-                if (target == null) { player?.Reply("Player not found."); return; }
+                if (target == null)
+                {
+                    player?.Reply(lang.GetMessage(Msg.PlayerNotFound, this, player?.Id));
+                    return;
+                }
 
                 ResyncPlayer(target.Id, ok =>
                     player?.Reply(ok
-                        ? $"Resynced {target.Name}."
-                        : $"Resync failed for {target.Name} (no link record or API error).")
-                );
+                        ? lang.GetMessage(Msg.ResyncSuccess, this, player?.Id)
+                              .Replace("{name}", target.Name)
+                        : lang.GetMessage(Msg.ResyncFailed, this, player?.Id)
+                              .Replace("{name}", target.Name)));
                 return;
             }
 
@@ -735,13 +905,14 @@ namespace Oxide.Plugins
                 ResyncPlayer(kv.Key, null);
                 count++;
             }
-            player?.Reply($"Queued resync for {count} linked player(s).");
+            player?.Reply(lang.GetMessage(Msg.ResyncQueued, this, player?.Id)
+                .Replace("{count}", count.ToString()));
         }
 
         /// <summary>
         /// /nitrodiscordbotlink BotToken GuildId [BoosterRoleId|RoleName]
         ///
-        /// Admin/console/RCON: Configure Discord credentials at runtime without editing files.
+        /// Admin / console / RCON: Configure Discord credentials at runtime without editing files.
         ///
         /// SECURITY NOTE: The bot token is passed as a command argument. Oxide logs all console
         /// commands verbatim. Restrict console and RCON access to prevent token exposure.
@@ -751,25 +922,24 @@ namespace Oxide.Plugins
         {
             if (player != null && !player.IsServer && !player.IsAdmin)
             {
-                player?.Reply("Admin or console only.");
+                player?.Reply(lang.GetMessage(Msg.AdminOnly, this, player?.Id));
                 return;
             }
 
             if (args.Length < 2)
             {
-                player?.Reply("Usage: /nitrodiscordbotlink <BotToken> <GuildId> [BoosterRoleId|RoleName]");
+                player?.Reply(lang.GetMessage(Msg.UsageBotLink, this, player?.Id));
                 return;
             }
 
             if (!ulong.TryParse(args[1], out ulong newGuildId) || newGuildId == 0)
             {
-                player?.Reply("GuildId must be a non-zero integer.");
+                player?.Reply(lang.GetMessage(Msg.BadGuildId, this, player?.Id));
                 return;
             }
 
-            // Security warning: token will appear in Oxide's server console log
-            Puts("[NitroBoostLinker] WARNING: Bot token set via command — visible in server console log. " +
-                 "Rotate this token if console access is not restricted to trusted admins.");
+            // Security warning: token will appear in Oxide's server console log verbatim
+            Puts(lang.GetMessage(Msg.TokenWarning, this, null));
 
             _config.DiscordBotToken = args[0];
             _config.DiscordGuildId  = newGuildId;
@@ -792,37 +962,36 @@ namespace Oxide.Plugins
             {
                 if (!ok)
                 {
-                    player?.Reply(
-                        "Discord validation failed. " +
-                        "Verify the bot token is correct, the bot is in the guild, and the guild ID is right."
-                    );
+                    player?.Reply(lang.GetMessage(Msg.BotLinkFailed, this, player?.Id));
                     LogFailure("[NitroBoostLinker] Discord validation failed during /nitrodiscordbotlink.");
                     return;
                 }
 
                 SaveConfigTyped();
-                player?.Reply($"Discord credentials saved and validated. GuildId={_config.DiscordGuildId}.");
+                player?.Reply(lang.GetMessage(Msg.BotLinkSaved, this, player?.Id)
+                    .Replace("{guildId}", _config.DiscordGuildId.ToString()));
                 Puts("[NitroBoostLinker] Discord credentials validated and saved.");
 
                 ReevaluateHardFailPrereqs();
 
                 player?.Reply(_hardDisabled
-                    ? $"Still disabled: {_hardDisabledReason}"
-                    : "Plugin is now ENABLED.");
+                    ? lang.GetMessage(Msg.BotLinkStillOff, this, player?.Id)
+                          .Replace("{reason}", _hardDisabledReason)
+                    : lang.GetMessage(Msg.BotLinkEnabled, this, player?.Id));
             });
         }
 
         /// <summary>
         /// /nitrodiag
         ///
-        /// Admin/console/RCON: Print a full health/status report to chat, console,
+        /// Admin / console / RCON: Print a full health / status report to chat, console,
         /// and oxide/logs/NitroBoostLinker.txt.
         /// </summary>
         private void CmdNitroDiag(IPlayer player, string command, string[] args)
         {
             if (player != null && !player.IsServer && !player.IsAdmin)
             {
-                player?.Reply("Admin or console only.");
+                player?.Reply(lang.GetMessage(Msg.AdminOnly, this, player?.Id));
                 return;
             }
 
@@ -835,9 +1004,10 @@ namespace Oxide.Plugins
             sb.AppendLine($"Rust Kits     : {(IsRustKitsPresent()       ? "OK" : "MISSING")}");
             sb.AppendLine($"Custom Auto K : {(IsCustomAutoKitsPresent() ? "OK" : "MISSING")}");
             sb.AppendLine($"Discord cfg   : {(discordOk                 ? "OK" : "MISSING")}");
+            sb.AppendLine($"API base      : {_config.DiscordApiBase}");
             sb.AppendLine(
                 $"Booster Role  : ID={(_config.BoosterRoleId != 0 ? _config.BoosterRoleId.ToString() : "n/a")} " +
-                $"Name={_config.BoosterRoleName ?? "n/a"}"
+                $"Name={(_config.BoosterRoleName ?? "n/a")}"
             );
             sb.AppendLine($"Permission    : {_config.OxidePermissionName}  Group: {_config.OxideGroupName}");
             sb.AppendLine($"Revalidation  : every {_config.RevalidationIntervalMinutes} min");
@@ -851,12 +1021,12 @@ namespace Oxide.Plugins
             LogToFile(LogFile, $"[{DateTime.UtcNow:u}] DIAG:\n{StripRichText(msg)}", this);
         }
 
-        // ──────────────────────────────────────────────────────────────
-        // BOOST / ROLE VERIFICATION & SCHEDULING
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
+        // BOOST / ROLE VERIFICATION AND SCHEDULING
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Re-checks Discord boost/role status for one linked player and grants or revokes VIP.
+        /// Re-checks Discord boost / role status for one linked player and grants or revokes VIP.
         /// Calls done(true) on success, done(false) if the player has no link record or the API fails.
         /// </summary>
         private void ResyncPlayer(string steamId, Action<bool> done)
@@ -897,8 +1067,9 @@ namespace Oxide.Plugins
 
         /// <summary>
         /// Hourly cleanup of the rate-limit dictionary.
-        /// SECURITY FIX: Without this, _rate grows unbounded as every player who ever
-        /// connected leaves a permanent entry, causing memory growth on long-running servers.
+        ///
+        /// SECURITY: Without this, _rate grows unbounded as every player who ever connected
+        /// leaves a permanent entry, causing memory growth on long-running servers.
         /// Entries are removed when all timestamps in the window are older than 2 minutes.
         /// </summary>
         private void ScheduleRateCleanup()
@@ -915,12 +1086,12 @@ namespace Oxide.Plugins
             });
         }
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // DISCORD REST API
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>Returns true for HTTP 2xx success codes.</summary>
-        private bool HttpOK(int code) => code >= 200 && code < 300;
+        private static bool HttpOK(int code) => code >= 200 && code < 300;
 
         /// <summary>Returns the Authorization header required for all Discord API calls.</summary>
         private Dictionary<string, string> AuthHeaders() =>
@@ -952,6 +1123,9 @@ namespace Oxide.Plugins
         /// <summary>
         /// Creates a DM channel with the Discord user then sends the verification code message.
         /// Two sequential Discord API calls: POST /users/@me/channels, then POST /channels/{id}/messages.
+        ///
+        /// SECURITY: HTTP response bodies are not written to the log even in debug mode.
+        /// Only the HTTP status code is logged to avoid leaking Discord user PII.
         /// </summary>
         private void SendVerificationDM(ulong discordUserId, string code, Action<bool> cb)
         {
@@ -972,7 +1146,7 @@ namespace Oxide.Plugins
                     if (!HttpOK(s1))
                     {
                         if (_config.DebugLogging)
-                            LogFailure($"[NBL] CreateDM failed ({s1}): {r1}");
+                            LogFailure($"[NBL] CreateDM HTTP {s1}");
                         cb?.Invoke(false);
                         return;
                     }
@@ -995,10 +1169,10 @@ namespace Oxide.Plugins
                     webrequest.Enqueue(
                         $"{_config.DiscordApiBase}/channels/{dm.Id}/messages",
                         msgBody,
-                        (s2, r2) =>
+                        (s2, _r2) =>
                         {
                             if (!HttpOK(s2) && _config.DebugLogging)
-                                LogFailure($"[NBL] Send DM failed ({s2}): {r2}");
+                                LogFailure($"[NBL] Send DM HTTP {s2}");
                             cb?.Invoke(HttpOK(s2));
                         },
                         this, RequestMethod.POST, headers, _config.HttpTimeoutSeconds
@@ -1009,8 +1183,12 @@ namespace Oxide.Plugins
         }
 
         /// <summary>
-        /// Fetches guild member record and checks for Nitro boost (premium_since) and/or Booster role.
-        /// Callback receives null on network/parse failure, otherwise a populated BoostCheckResult.
+        /// Fetches guild member record and checks for Nitro boost (premium_since) and / or Booster role.
+        /// Callback receives null on network / parse failure, otherwise a populated BoostCheckResult.
+        ///
+        /// SECURITY: The member.Roles list is iterated with an early-exit loop; no bound is needed
+        /// because it is provided by Discord (trusted third party). Role name comparison is guarded
+        /// by ulong.TryParse to prevent injection via a crafted role ID string.
         /// </summary>
         private void CheckMemberBoostOrRole(ulong discordUserId, Action<BoostCheckResult> cb)
         {
@@ -1026,7 +1204,7 @@ namespace Oxide.Plugins
                         if (!HttpOK(status))
                         {
                             if (_config.DebugLogging)
-                                LogFailure($"[NBL] GET member failed ({status}): {resp}");
+                                LogFailure($"[NBL] GET member HTTP {status}");
                             cb?.Invoke(null);
                             return;
                         }
@@ -1077,8 +1255,9 @@ namespace Oxide.Plugins
 
         /// <summary>
         /// Resolves BoosterRoleName to its Discord role ID via GET /guilds/{id}/roles.
-        /// Result is cached for 30 minutes. Skips if BoosterRoleId is already configured,
-        /// role check is disabled, or no role name is set.
+        /// Result is cached for 30 minutes to reduce Discord API call frequency.
+        /// Skipped if BoosterRoleId is already configured, role check is disabled,
+        /// or no role name is set.
         /// </summary>
         private void ResolveBoosterRoleIdIfNeeded(Action done)
         {
@@ -1124,7 +1303,7 @@ namespace Oxide.Plugins
                     }
                     else if (_config.DebugLogging)
                     {
-                        LogFailure($"[NBL] GET roles failed ({status}): {resp}");
+                        LogFailure($"[NBL] GET roles HTTP {status}");
                     }
 
                     done?.Invoke();
@@ -1133,19 +1312,30 @@ namespace Oxide.Plugins
             );
         }
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // DATA PERSISTENCE
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         private void LoadData()
         {
-            _linked = Interface.Oxide.DataFileSystem
-                          .ReadObject<Dictionary<string, LinkRecord>>(LinksFile)
-                      ?? new Dictionary<string, LinkRecord>();
+            var rawLinked = Interface.Oxide.DataFileSystem
+                .ReadObject<Dictionary<string, LinkRecord>>(LinksFile)
+                ?? new Dictionary<string, LinkRecord>();
+
+            // SECURITY: Validate each record before accepting it; corrupt disk data must not
+            // cause NullReferenceExceptions when accessed later in resync or status commands.
+            _linked = new Dictionary<string, LinkRecord>();
+            foreach (var kv in rawLinked)
+            {
+                if (kv.Value != null && kv.Value.IsValid())
+                    _linked[kv.Key] = kv.Value;
+                else
+                    LogWarning($"[NBL] Skipped invalid link record for key '{kv.Key}' during load.");
+            }
 
             var pendingList = Interface.Oxide.DataFileSystem
-                                  .ReadObject<List<PendingRecord>>(PendingFile)
-                              ?? new List<PendingRecord>();
+                .ReadObject<List<PendingRecord>>(PendingFile)
+                ?? new List<PendingRecord>();
 
             _pendingBySteam = new Dictionary<string, PendingRecord>();
             _pendingByCode  = new Dictionary<string, PendingRecord>();
@@ -1153,11 +1343,9 @@ namespace Oxide.Plugins
             DateTime now = DateTime.UtcNow;
             foreach (PendingRecord p in pendingList)
             {
-                if (p != null && p.ExpiresUtc > now)
-                {
-                    _pendingBySteam[p.SteamId] = p;
-                    _pendingByCode[p.Code]     = p;
-                }
+                if (p == null || !p.IsValid() || p.ExpiresUtc <= now) continue;
+                _pendingBySteam[p.SteamId] = p;
+                _pendingByCode[p.Code]     = p;
             }
         }
 
@@ -1167,17 +1355,18 @@ namespace Oxide.Plugins
             Interface.Oxide.DataFileSystem.WriteObject(PendingFile, _pendingBySteam.Values.ToList());
         }
 
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
         // UTILITIES
-        // ──────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>
         /// Generates a cryptographically random verification code from CodeAlphabet.
         /// CodeAlphabet.Length == 32, which divides 256 evenly — zero modulo bias.
+        /// Length is clamped to [4, MaxCodeLength] before use.
         /// </summary>
         private string GenerateCode(int length)
         {
-            if (length <= 0) length = 6;
+            length = Math.Max(4, Math.Min(MaxCodeLength, length));
             var bytes  = new byte[length];
             var result = new StringBuilder(length);
 
@@ -1191,10 +1380,13 @@ namespace Oxide.Plugins
         }
 
         /// <summary>
-        /// SECURITY FIX: Generates a code that is not already present in _pendingByCode.
-        /// Without this check, a duplicate code would overwrite the first player's entry in
-        /// _pendingByCode while leaving _pendingBySteam intact, making cleanup inconsistent.
-        /// Retries up to 10 times; fallback on the 11th is accepted (probability is negligible).
+        /// Generates a code that is not already present in _pendingByCode.
+        ///
+        /// SECURITY: Without this check, a duplicate code would overwrite the first player's
+        /// entry in _pendingByCode while leaving _pendingBySteam intact, making cleanup
+        /// inconsistent and allowing a second player to claim the wrong pending record.
+        /// Retries up to 10 times; returns the final result regardless on the 11th attempt
+        /// (probability of collision after 10 tries is negligible).
         /// </summary>
         private string GenerateUniqueCode(int length)
         {
@@ -1233,7 +1425,7 @@ namespace Oxide.Plugins
 
             if (list.Count >= _config.RateLimitPerPlayerPerMinute)
             {
-                player.Reply("You are sending commands too quickly. Try again in a moment.");
+                player.Reply(lang.GetMessage(Msg.RateLimit, this, player.Id));
                 return false;
             }
 
@@ -1242,9 +1434,9 @@ namespace Oxide.Plugins
         }
 
         /// <summary>
-        /// Finds a player by exact SteamId, then partial name match (connected players),
-        /// then falls back to Covalence lookup (includes offline players).
-        /// Returns the first match; partial name matching is first-match only.
+        /// Finds a player by exact SteamId, then partial case-insensitive name match
+        /// (connected players only), then falls back to Covalence lookup (includes offline players).
+        /// Returns the first match; name matching is first-match only.
         /// </summary>
         private IPlayer FindPlayer(string nameOrId)
         {
@@ -1296,9 +1488,9 @@ namespace Oxide.Plugins
         }
 
         /// <summary>
-        /// SECURITY FIX: Strips Rust/Unity rich-text tags using regex rather than
-        /// plain string.Replace(). The old implementation missed parameterized tags
-        /// such as color=#FF0000 and size=14, which could leak partial markup into logs.
+        /// Strips Rust / Unity rich-text tags using a regex to handle parameterized forms
+        /// such as &lt;color=#FF0000&gt; and &lt;size=14&gt;. Plain string.Replace would
+        /// silently pass those tags through into log output.
         /// </summary>
         private static string StripRichText(string s)
         {

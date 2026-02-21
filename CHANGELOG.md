@@ -4,6 +4,53 @@ All notable changes to Nitro Boost Linker will be documented in this file.
 
 ---
 
+## 1.5.5 — 2026-02-21
+
+### Security Fixes
+- **[HIGH] SSRF via DiscordApiBase**: `DiscordApiBase` is a user-configurable field in the
+  Oxide config file. A poisoned or tampered config could redirect all HTTP calls to an
+  internal network address. `NormalizeConfig()` now validates that the value starts with
+  `https://discord.com` and resets it to the default if it does not.
+- **[HIGH] PII leakage in debug logs**: When `DebugLogging` was true, full HTTP response
+  bodies were written to `oxide/logs/NitroBoostLinker.txt`. Discord API responses for
+  guild member and user endpoints can contain email addresses, phone-number verification
+  status, and other user PII. Only the HTTP status code is now logged regardless of
+  `DebugLogging`.
+- **[MEDIUM] Corrupt data file causes NullReferenceException**: Link records loaded from
+  `NitroBoostLinker_Links.json` were not validated before being stored in `_linked`.
+  A corrupt or manually-edited data file with null `SteamId` or zero `DiscordUserId`
+  could cause null-dereference crashes during revalidation or `/nitrostatus`. Records
+  are now validated by `LinkRecord.IsValid()` and `PendingRecord.IsValid()` at load time;
+  invalid entries are skipped with a log warning.
+- **[MEDIUM] Config integer abuse**: `VerificationCodeLength`, `VerificationCodeTTLSeconds`,
+  `RevalidationIntervalMinutes`, `RateLimitPerPlayerPerMinute`, and `HttpTimeoutSeconds`
+  had no bounds checks. Extreme values could cause allocation spikes, near-zero rate
+  limits, or DoS via very long HTTP timeouts. `NormalizeConfig()` clamps all of these
+  to sane ranges on load.
+- **[LOW] `VerificationCodeLength` clamping missing in `GenerateCode`**: Even though the
+  config is now clamped, `GenerateCode` itself also clamps to `[4, MaxCodeLength]` as a
+  defense-in-depth measure in case the method is called directly with an unchecked value.
+
+### New Features
+- **Localization**: All player-facing strings are now managed through Oxide's `lang`
+  system via `lang.RegisterMessages` and `lang.GetMessage`. Four locale files are
+  provided: English (`en`), Russian (`ru`), Spanish (`es`), and Latin (`la`).
+  Translators can add additional locales by creating
+  `oxide/lang/{locale}/NitroBoostLinker.json` with the message keys defined in `Msg`.
+
+### Code Quality
+- `NormalizeConfig()` extracted from `LoadConfigTyped()` to centralize all config
+  validation and normalization logic.
+- `Msg` nested static class introduced to hold all lang message key constants,
+  eliminating magic strings throughout command handlers.
+- `GetMsg()` helper wraps `lang.GetMessage` with safe `string.Format` fallback.
+- `BarkIfHardDisabled` updated to use the localized `HardDisabledNotice` message.
+- `CmdNitroDiag` now prints `DiscordApiBase` in the output to aid debugging
+  SSRF-related config issues.
+
+
+---
+
 ## 1.5.3 — 2025-02-21
 
 ### Security Fixes
@@ -81,3 +128,4 @@ Grants `NitroBoost` permission and optional Oxide group. Commands: `nitrolink`,
   All callback sites updated to use named properties (`IsPremiumBoosting`, `PremiumSince`,
   `HasBoosterRole`) instead of positional tuple elements.
   This was a pre-existing bug in 1.5.2 and carried into 1.5.3.
+
