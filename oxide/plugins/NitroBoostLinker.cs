@@ -20,7 +20,7 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("Nitro Boost Linker", "Gabriel", "1.5.3")]
+    [Info("Nitro Boost Linker", "Gabriel", "1.5.4")]
     [Description("Grants NitroBoost permission when a linked Discord user is boosting or has a Booster role. Hard-fails on missing prerequisites. Includes /nitrodiag and verbose logging.")]
     public class NitroBoostLinker : CovalencePlugin
     {
@@ -28,7 +28,7 @@ namespace Oxide.Plugins
         // CONSTANTS
         // ──────────────────────────────────────────────────────────────
 
-        private const string DisplayVersion = "1.5.3";
+        private const string DisplayVersion = "1.5.4";
         private const string DisplayAuthor  = "Gabriel — MIT License";
 
         private const string UrlImageLibrary = "https://umod.org/plugins/image-library";
@@ -224,6 +224,23 @@ namespace Oxide.Plugins
         // ──────────────────────────────────────────────────────────────
         // DISCORD API DTOs
         // ──────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Result type for CheckMemberBoostOrRole().
+        /// Replaces a C# 7.0 value tuple to ensure compilation on Oxide's build system,
+        /// which targets .NET below 4.7 and does not have System.ValueTuple in the BCL.
+        /// Using value tuple syntax (Action&lt;(bool, DateTime?, bool)?&gt;) causes CS8179:
+        /// "Predefined type 'System.ValueTuple' is not defined or imported."
+        /// </summary>
+        private class BoostCheckResult
+        {
+            /// <summary>True when premium_since is non-null and TreatPremiumSinceAsBoost is enabled.</summary>
+            public bool      IsPremiumBoosting;
+            /// <summary>Raw premium_since value from Discord, or null if the member is not boosting.</summary>
+            public DateTime? PremiumSince;
+            /// <summary>True when the member has the configured Booster role.</summary>
+            public bool      HasBoosterRole;
+        }
 
         private class CreateDMResponse
         {
@@ -622,8 +639,7 @@ namespace Oxide.Plugins
                     return;
                 }
 
-                var (premiumBoosting, premiumSince, hasRole) = result.Value;
-                bool qualifies = premiumBoosting || hasRole;
+                bool qualifies = result.IsPremiumBoosting || result.HasBoosterRole;
                 DateTime ts    = DateTime.UtcNow;
 
                 _linked[player.Id] = new LinkRecord
@@ -633,7 +649,7 @@ namespace Oxide.Plugins
                     LinkedAtUtc           = ts,
                     LastVerifiedUtc       = ts,
                     IsBoosting            = qualifies,
-                    LastKnownPremiumSince = premiumSince
+                    LastKnownPremiumSince = result.PremiumSince
                 };
 
                 CleanupPending(pending);
@@ -642,7 +658,7 @@ namespace Oxide.Plugins
                 if (qualifies)
                 {
                     GrantVip(player.Id);
-                    string reason = premiumBoosting ? "Nitro boost detected" : "Booster role detected";
+                    string reason = result.IsPremiumBoosting ? "Nitro boost detected" : "Booster role detected";
                     player.Reply($"Linked! {reason} — {_config.OxidePermissionName} permission granted.");
                 }
                 else
@@ -855,10 +871,9 @@ namespace Oxide.Plugins
             {
                 if (result == null) { done?.Invoke(false); return; }
 
-                var (premiumBoosting, premiumSince, hasRole) = result.Value;
                 link.LastVerifiedUtc       = DateTime.UtcNow;
-                link.IsBoosting            = premiumBoosting || hasRole;
-                link.LastKnownPremiumSince = premiumSince;
+                link.IsBoosting            = result.IsPremiumBoosting || result.HasBoosterRole;
+                link.LastKnownPremiumSince = result.PremiumSince;
                 SaveData();
 
                 if (link.IsBoosting) GrantVip(steamId);
@@ -995,10 +1010,9 @@ namespace Oxide.Plugins
 
         /// <summary>
         /// Fetches guild member record and checks for Nitro boost (premium_since) and/or Booster role.
-        /// Callback receives null on network/parse failure, otherwise a tuple of:
-        ///   (isPremiumBoosting, premiumSinceDate, hasBoosterRole)
+        /// Callback receives null on network/parse failure, otherwise a populated BoostCheckResult.
         /// </summary>
-        private void CheckMemberBoostOrRole(ulong discordUserId, Action<(bool, DateTime?, bool)?> cb)
+        private void CheckMemberBoostOrRole(ulong discordUserId, Action<BoostCheckResult> cb)
         {
             if (_hardDisabled) { cb?.Invoke(null); return; }
 
@@ -1042,7 +1056,12 @@ namespace Oxide.Plugins
                                 }
                             }
 
-                            cb?.Invoke((premium, member?.PremiumSince, roleOk));
+                            cb?.Invoke(new BoostCheckResult
+                            {
+                                IsPremiumBoosting = premium,
+                                PremiumSince      = member?.PremiumSince,
+                                HasBoosterRole    = roleOk
+                            });
                         }
                         catch (Exception e)
                         {

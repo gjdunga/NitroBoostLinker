@@ -46,4 +46,4 @@ See [INSTALL.md](INSTALL.md) for full steps.
 
 See [CHANGELOG.md](CHANGELOG.md).
 
-Current version: **1.5.3**
+Current version: **1.5.4**

@@ -65,3 +65,19 @@ strengthened rate limiting, pending code storage, and data persistence.
 Initial public release. Discord↔Steam verification flow via one-time codes.
 Grants `NitroBoost` permission and optional Oxide group. Commands: `nitrolink`,
 `nitroverify`, `nitrostatus`, `nitroresync`, `nitrodiscordbotlink`, `nitrodiag`.
+
+---
+
+## 1.5.4 — 2025-02-21
+
+### Build Fix
+- **[CRITICAL] CS8179: Predefined type 'System.ValueTuple' is not defined or imported.**
+  The callback signature `Action<(bool, DateTime?, bool)?>` and the tuple destructuring
+  `var (a, b, c) = result.Value` use C# 7.0 value-tuple syntax. On Oxide's uMod build system,
+  plugins are compiled against a .NET target below 4.7 without a NuGet package reference, so
+  `System.ValueTuple` is not available at compile time. This caused a silent build failure on
+  uMod with no displayed error message.
+  Fix: replaced the `(bool, DateTime?, bool)?` tuple with a private `BoostCheckResult` class.
+  All callback sites updated to use named properties (`IsPremiumBoosting`, `PremiumSince`,
+  `HasBoosterRole`) instead of positional tuple elements.
+  This was a pre-existing bug in 1.5.2 and carried into 1.5.3.
