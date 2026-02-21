@@ -1,67 +1,49 @@
-Nitro Boost Linker
+# Nitro Boost Linker
 
-Grants the NitroBoost permission when a linked Discord user is actively boosting your guild (premium_since) or has a configured Booster role. Designed for use with Custom Auto Kits + Rust Kits so VIP kits unlock automatically.
+Grants the `NitroBoost` Oxide permission when a linked Discord user is actively boosting your
+guild (`premium_since`) or has a configured Booster role. Designed to pair with **Custom Auto Kits**
+and **Rust Kits** so VIP kits unlock automatically.
 
-Hard‑fails without prerequisites (Image Library, Rust Kits, Custom Auto Kits, Discord config)
+- Hard-fails without prerequisites (Image Library, Rust Kits, Custom Auto Kits, Discord config) and logs a clear error every 5 minutes
+- `/nitrodiscordbotlink` lets admins configure the bot at runtime without editing files
+- `/nitrodiag` prints a full health report and logs it to `oxide/logs/NitroBoostLinker.txt`
+- `/nitrolink help` is always available, even while hard-disabled
+- Boost/role status is re-checked automatically on a configurable interval
 
-/nitrodiscordbotlink lets admins configure the bot without editing files
+## Requirements
 
-/nitrodiag prints a clear health report and logs it to Oxide
+- [Image Library](https://umod.org/plugins/image-library) (`ImageLibrary`)
+- [Rust Kits](https://umod.org/plugins/rust-kits) (`Kits`)
+- [Custom Auto Kits](https://umod.org/plugins/custom-auto-kits) (`CustomAutoKits`)
+- A Discord bot in your guild (token + guild ID)
 
-Help stays open (/nitrolink help) even while hard‑disabled
+## Quick Install
 
-Requirements
+See [INSTALL.md](INSTALL.md) for full steps.
 
-Image Library
- (ImageLibrary)
+**TL;DR:**
 
-Rust Kits
- (Kits)
+1. Copy `NitroBoostLinker.cs` to `oxide/plugins/`.
+2. Install Image Library, Rust Kits, and Custom Auto Kits.
+3. In console/RCON: `/nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678`
+   Optionally include a Booster role ID or name:
+   `/nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678 987654321098765432`
+4. In Custom Auto Kits, set your VIP kit to require permission `NitroBoost` (exact casing).
 
-Custom Auto Kits
- (CustomAutoKits)
+## Commands
 
-A Discord bot in your guild (token + guild ID)
+| Command | Who | Description |
+|---|---|---|
+| `/nitrolink help` | Players | Show linking steps and required plugin links |
+| `/nitrolink <DiscordUserID>` | Players | Start link flow |
+| `/nitroverify <CODE>` | Players | Complete link with DM code |
+| `/nitrostatus` | Players | Show link/boost status |
+| `/nitroresync [player]` | Admin | Re-check one or all players |
+| `/nitrodiscordbotlink <BotToken> <GuildId> [RoleId|Name]` | Admin/console | Configure Discord credentials |
+| `/nitrodiag` | Admin/console | Full health report |
 
-Quick Install
+## Version
 
-See INSTALL.md
- for detailed steps.
+See [CHANGELOG.md](CHANGELOG.md).
 
-TL;DR
-
-Copy NitroBoostLinker.cs to oxide/plugins/.
-
-Install Image Library, Rust Kits, and Custom Auto Kits.
-
-In console/RCON: /nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678
-Optionally include Booster role ID or name:
-/nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678 987654321098765432
-OR /nitrodiscordbotlink YOUR_BOT_TOKEN 123456789012345678 BoosterRoleName
-
-In Custom Auto Kits, set your VIP kit to require permission NitroBoost (exact casing).
-
-Commands
-
-nitrolink help – show linking steps + required plugin links (available even while disabled)
-
-nitrolink <DiscordUserID> – start link
-
-nitroverify <CODE> – complete link
-
-nitrostatus – show your link/boost status
-
-nitroresync [player] – admin re‑check one or all players
-
-nitrodiscordbotlink <BotToken> <GuildId> [BoosterRoleId|RoleName] – admin/console setup
-
-nitrodiag – admin/console diagnostics (also writes to oxide/logs/NitroBoostLinker.txt)
-
-Sample Config
-
-A sample oxide/config/NitroBoostLinker.json is included in this repo for screenshots and easy bootstrapping.
-
-Version
-
-See CHANGELOG.md
-.
+Current version: **1.5.3**

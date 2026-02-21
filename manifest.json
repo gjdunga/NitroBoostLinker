@@ -1,7 +1,7 @@
 {
   "name": "NitroBoostLinker",
   "title": "Nitro Boost Linker",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "author": "Gabriel",
   "license": "MIT",
   "description": "Grants the NitroBoost permission when a linked Discord user is actively boosting the guild (premium_since) or has a Booster role. Hard-fails unless Image Library + Rust Kits + Custom Auto Kits are installed and Discord is configured.",
@@ -23,27 +23,27 @@
     {
       "command": "nitrolink",
       "arguments": "[DiscordUserID|help]",
-      "description": "Start Discord link flow (or show help with links to required dependencies). Usable by players."
+      "description": "Start Discord link flow (or show help). Available to all players."
     },
     {
       "command": "nitroverify",
       "arguments": "<CODE>",
-      "description": "Complete Discord link verification using the code DM’d by the bot."
+      "description": "Complete Discord link verification using the code DM'd by the bot."
     },
     {
       "command": "nitrostatus",
       "arguments": "",
-      "description": "Show the player’s current link/boost status."
+      "description": "Show the player's current link/boost status."
     },
     {
       "command": "nitroresync",
       "arguments": "[player]",
-      "description": "Admin-only. Re-check boost/role status for one player or all linked players."
+      "description": "Admin only. Re-check boost/role status for one player or all linked players."
     },
     {
       "command": "nitrodiscordbotlink",
       "arguments": "<BotToken> <GuildId> [BoosterRoleId|RoleName]",
-      "description": "Admin/console/RCON. Configure Discord bot credentials and optional Booster role without editing files."
+      "description": "Admin/console/RCON. Configure Discord bot credentials at runtime without editing files."
     },
     {
       "command": "nitrodiag",
@@ -82,7 +82,7 @@
     "network": [
       "https://discord.com/api/*"
     ],
-    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). No webhooks or inbound listeners."
+    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). No webhooks or inbound listeners. Bot token is stored in the Oxide config file. Restrict console and RCON access to prevent token exposure when using /nitrodiscordbotlink."
   },
   "files": [
     {
