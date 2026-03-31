@@ -1,6 +1,6 @@
 # Installation Guide
 
-Follow these steps to install **Nitro Boost Linker v1.5.3** on your Rust server with uMod (Oxide).
+Follow these steps to install **Nitro Boost Linker v1.5.6** on your Rust server with uMod (Oxide).
 
 ---
 
@@ -18,7 +18,10 @@ The following plugins must be installed and loaded **before** Nitro Boost Linker
 | [Rust Kits](https://umod.org/plugins/rust-kits) | `rust-kits` | kit granting |
 | [Custom Auto Kits](https://umod.org/plugins/custom-auto-kits) | `custom-auto-kits` | permission-based auto-kits |
 
-Install each by copying their `.cs` files into `oxide/plugins/` or via the uMod website.
+Oxide minimum version: **v2.0.7022** (Rust Naval Update). Verified compatible through v2.0.7182
+(Rust Community Update 268).
+
+Install each dependency by copying their `.cs` files into `oxide/plugins/` or via the uMod website.
 
 If any of these are missing, the plugin hard-disables itself and logs a clear error every 5 minutes
 until the dependency is added.
@@ -27,7 +30,7 @@ until the dependency is added.
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and create an application.
 2. Under **Bot**, enable the **Server Members Intent** (required to fetch member records).
-3. Copy the bot **Token** — you will need this in step 4.
+3. Copy the bot **Token** -- you will need this in step 4.
 4. Under **OAuth2 > URL Generator**, select scopes `bot` and permissions **Send Messages** and
    **Read Message History**. Use the generated URL to invite the bot to your guild.
 
@@ -39,10 +42,10 @@ In console, RCON, or in-game as an admin, run:
 /nitrodiscordbotlink <BotToken> <GuildId> [BoosterRoleId|RoleName]
 ```
 
-- `<BotToken>` — your bot token from the Developer Portal.
-- `<GuildId>` — the numerical ID of your Discord server (right-click server icon with Developer Mode
+- `<BotToken>` -- your bot token from the Developer Portal.
+- `<GuildId>` -- the numerical ID of your Discord server (right-click server icon with Developer Mode
   enabled > **Copy Server ID**).
-- `[BoosterRoleId|RoleName]` — optional. If omitted, only players with an active Nitro boost
+- `[BoosterRoleId|RoleName]` -- optional. If omitted, only players with an active Nitro boost
   (`premium_since`) qualify. Supply a role ID or exact role name to also accept that role.
 
 **Security note:** The bot token will appear in Oxide's server console log because all commands are
@@ -80,7 +83,7 @@ Once linked, boost/role status is re-checked automatically every 60 minutes (con
 |---|---|
 | `/nitrostatus` | Check a player's link and boost status |
 | `/nitroresync [player]` | Force re-validation for one or all players (admin) |
-| `/nitrodiag` | Full health report — dependency status, config summary, counts (admin) |
+| `/nitrodiag` | Full health report -- dependency status, config summary, counts (admin) |
 
 The diag command also writes to `oxide/logs/NitroBoostLinker.txt`.
 

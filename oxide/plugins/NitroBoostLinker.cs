@@ -1,5 +1,5 @@
 // NitroBoostLinker.cs
-// MIT License — (c) 2025 Gabriel Dungan (github.com/gjdunga)
+// MIT License — (c) 2026 Gabriel Dungan (github.com/gjdunga)
 //
 // Grants the NitroBoost Oxide permission when a linked Discord user is actively
 // boosting the guild (premium_since) or has a configured Booster role.
@@ -33,7 +33,7 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("Nitro Boost Linker", "Gabriel", "1.5.5")]
+    [Info("Nitro Boost Linker", "Gabriel", "1.5.6")]
     [Description("Grants NitroBoost permission when a linked Discord user is boosting or has a Booster role. Hard-fails on missing prerequisites. Includes /nitrodiag and verbose logging.")]
     public class NitroBoostLinker : CovalencePlugin
     {
@@ -41,7 +41,7 @@ namespace Oxide.Plugins
         // CONSTANTS
         // ─────────────────────────────────────────────────────────────────────────
 
-        private const string DisplayVersion = "1.5.5";
+        private const string DisplayVersion = "1.5.6";
         private const string DisplayAuthor  = "Gabriel — MIT License";
 
         private const string UrlImageLibrary = "https://umod.org/plugins/image-library";

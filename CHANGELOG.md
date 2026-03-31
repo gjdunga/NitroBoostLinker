@@ -4,7 +4,24 @@ All notable changes to Nitro Boost Linker will be documented in this file.
 
 ---
 
-## 1.5.5 — 2026-02-21
+## 1.5.6 -- 2026-03-30
+
+### Compatibility
+
+- Verified compatible with Oxide 2.0.7182 (Rust Community Update 268). No hook
+  signature changes affecting this plugin were introduced between Oxide 2.0.7022
+  and 2.0.7182. The plugin uses only Covalence (IPlayer) types and makes no
+  direct references to Assembly-CSharp game types.
+
+### Documentation
+
+- Copyright year updated to 2026 in plugin header.
+- INSTALL.md corrected to reflect current version (was stale at v1.5.3).
+- manifest.json: added oxide_minimum field (2.0.7022) to compatibility block.
+
+---
+
+## 1.5.5 -- 2026-02-21
 
 ### Security Fixes
 - **[HIGH] SSRF via DiscordApiBase**: `DiscordApiBase` is a user-configurable field in the
@@ -48,10 +65,25 @@ All notable changes to Nitro Boost Linker will be documented in this file.
 - `CmdNitroDiag` now prints `DiscordApiBase` in the output to aid debugging
   SSRF-related config issues.
 
+---
+
+## 1.5.4 -- 2026-02-21
+
+### Build Fix
+- **[CRITICAL] CS8179: Predefined type 'System.ValueTuple' is not defined or imported.**
+  The callback signature `Action<(bool, DateTime?, bool)?>` and the tuple destructuring
+  `var (a, b, c) = result.Value` use C# 7.0 value-tuple syntax. On Oxide's uMod build
+  system, plugins are compiled against a .NET target below 4.7 without a NuGet package
+  reference, so `System.ValueTuple` is not available at compile time. This caused a
+  silent build failure on uMod with no displayed error message.
+  Fix: replaced the `(bool, DateTime?, bool)?` tuple with a private `BoostCheckResult`
+  class. All callback sites updated to use named properties (`IsPremiumBoosting`,
+  `PremiumSince`, `HasBoosterRole`) instead of positional tuple elements.
+  This was a pre-existing bug in 1.5.2 and carried into 1.5.3.
 
 ---
 
-## 1.5.3 — 2025-02-21
+## 1.5.3 -- 2025-02-21
 
 ### Security Fixes
 - **[CRITICAL] Timer accumulation**: `RepeatConsoleBark()` (now `StartBarkTimer()`) created a new
@@ -84,13 +116,13 @@ All notable changes to Nitro Boost Linker will be documented in this file.
 ### Code Quality
 - Simplified double-negative admin guard in `CmdNitroDiscordBotLink` for readability.
 - Added `DestroyBarkTimers()` call in `Unload()` to clean up on server shutdown.
-- Verified `CodeAlphabet` length (32) divides 256 evenly — zero modulo bias in code generation.
+- Verified `CodeAlphabet` length (32) divides 256 evenly -- zero modulo bias in code generation.
 - Removed hard-fail messages from `PluginConfig` (they were baked-in strings, not user-configurable
   in practice) and inlined them in `ReevaluateHardFailPrereqs()` to keep the config surface minimal.
 
 ---
 
-## 1.5.2 — 2025-12-05
+## 1.5.2 -- 2025-12-05
 
 Bumped version and author metadata. Consolidated 1.5.1 improvements:
 added `OnServerInitialized`, `OnPluginLoaded`, `OnPluginUnloaded` hooks to handle dependency
@@ -99,7 +131,7 @@ error handling; added `DisplayVersion`/`DisplayAuthor` constants.
 
 ---
 
-## 1.5.1 — 2025
+## 1.5.1 -- 2025
 
 Robust load-order handling; refactored config loading/saving; improved help output,
 diagnostics formatting, and logging; dynamic booster role resolution by name;
@@ -107,25 +139,8 @@ strengthened rate limiting, pending code storage, and data persistence.
 
 ---
 
-## 1.5.0 — 2025
+## 1.5.0 -- 2025
 
-Initial public release. Discord↔Steam verification flow via one-time codes.
+Initial public release. Discord/Steam verification flow via one-time codes.
 Grants `NitroBoost` permission and optional Oxide group. Commands: `nitrolink`,
 `nitroverify`, `nitrostatus`, `nitroresync`, `nitrodiscordbotlink`, `nitrodiag`.
-
----
-
-## 1.5.4 — 2025-02-21
-
-### Build Fix
-- **[CRITICAL] CS8179: Predefined type 'System.ValueTuple' is not defined or imported.**
-  The callback signature `Action<(bool, DateTime?, bool)?>` and the tuple destructuring
-  `var (a, b, c) = result.Value` use C# 7.0 value-tuple syntax. On Oxide's uMod build system,
-  plugins are compiled against a .NET target below 4.7 without a NuGet package reference, so
-  `System.ValueTuple` is not available at compile time. This caused a silent build failure on
-  uMod with no displayed error message.
-  Fix: replaced the `(bool, DateTime?, bool)?` tuple with a private `BoostCheckResult` class.
-  All callback sites updated to use named properties (`IsPremiumBoosting`, `PremiumSince`,
-  `HasBoosterRole`) instead of positional tuple elements.
-  This was a pre-existing bug in 1.5.2 and carried into 1.5.3.
-
