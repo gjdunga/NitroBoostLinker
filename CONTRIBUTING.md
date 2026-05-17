@@ -28,7 +28,7 @@ locale-file format, and how to disclose security issues responsibly.
 
 The project follows semantic versioning:
 
-- **Patch** (`1.6.x`) — bug or security fixes, documentation, locale changes.
+- **Patch** (`5.4.x`) — bug or security fixes, documentation, locale changes.
 - **Minor** (`1.x.0`) — new behaviour or config keys with backward-compatible defaults.
 - **Major** (`x.0.0`) — breaking changes to config, command syntax, or persisted data.
 

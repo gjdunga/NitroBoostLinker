@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide walks you through installing **Nitro Boost Linker v1.6.0** on a Rust
+This guide walks you through installing **Nitro Boost Linker v5.4.0** on a Rust
 dedicated server running Oxide (uMod). Plan on ~10 minutes if you already have a
 Discord application; ~20 minutes if you need to create one from scratch.
 
