@@ -2,6 +2,63 @@
 
 All notable changes to Nitro Boost Linker will be documented in this file.
 
+Maintainer: Gabriel Dungan, DunganSoft Technologies.
+
+---
+
+## 1.6.0 -- 2026-05-17
+
+### Project metadata
+
+- Author attribution updated to **Gabriel Dungan of DunganSoft Technologies** across
+  the plugin `[Info]` attribute, `DisplayAuthor` constant, header copyright line,
+  `manifest.json`, `.umod.yaml`, and `LICENSE`.
+- `manifest.json` now lists `CONTRIBUTING.md` and an `oxide_verified_through` field
+  noting the most recently verified Oxide.Rust build (2.0.7245).
+
+### Security fixes
+
+- **[MEDIUM] Unsaved bad credentials after a typo in /nitrodiscordbotlink.** The
+  previous flow mutated `_config.DiscordBotToken`, `DiscordGuildId`,
+  `BoosterRoleId`, and `BoosterRoleName` in-memory *before* validating against
+  Discord. On validation failure the disk file was correctly left alone, but the
+  running plugin was left using the unsaved bad credentials until the next reload.
+  The command now snapshots all four fields, reapplies the snapshot on validation
+  failure, and logs that the rollback occurred. An admin typo can no longer leave
+  the live plugin in a divergent state from disk.
+
+### Hardening / modernization
+
+- Replaced the obsolete `RNGCryptoServiceProvider` constructor with
+  `RandomNumberGenerator.Create()` in `GenerateCode()`. The factory method is
+  available on every Oxide-supported .NET target and avoids `SYSLIB0023` warnings
+  when the plugin is built against .NET 6+ tooling. Cryptographic behaviour is
+  identical (system CSPRNG, 32-character alphabet, zero modulo bias).
+- `CmdNitroResync` now snapshots `_linked` with `.ToArray()` before iterating, in
+  line with `ScheduleRevalidation`. This makes the iteration safe if any future
+  revision mutates the dictionary from inside the resync callback.
+
+### Compatibility
+
+- Re-verified against current Facepunch Rust and Oxide.Rust 2.0.7245. No hook
+  signature changes affecting this plugin. Covalence-only design continues to
+  insulate the plugin from monthly force-wipe updates.
+
+### Documentation
+
+- `README.md` rewritten as a product-oriented landing page (what it is, why use it,
+  feature highlights, requirements table, commands table, configuration table,
+  security & privacy summary).
+- `INSTALL.md` rewritten as a step-by-step walkthrough covering prerequisites,
+  Discord application setup with intents, credential configuration, VIP-kit
+  wiring, player flow, admin tooling, config tuning, updating, troubleshooting,
+  and uninstalling.
+- `CONTRIBUTING.md` added: ground rules, versioning policy, local development
+  loop, full test checklist, locale-add procedure, config-key procedure,
+  command-add procedure, and security-disclosure process.
+- `CHANGELOG.md` (this file) reorganized with a maintainer line and dated 1.6.0
+  entry.
+
 ---
 
 ## 1.5.6 -- 2026-03-30
