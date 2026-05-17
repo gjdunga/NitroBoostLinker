@@ -1,9 +1,10 @@
 {
   "name": "NitroBoostLinker",
   "title": "Nitro Boost Linker",
-  "version": "1.5.6",
-  "author": "Gabriel",
+  "version": "1.6.0",
+  "author": "Gabriel Dungan of DunganSoft Technologies",
   "license": "MIT",
+  "contributing": "CONTRIBUTING.md",
   "description": "Grants the NitroBoost permission when a linked Discord user is actively boosting the guild (premium_since) or has a Booster role. Hard-fails unless Image Library + Rust Kits + Custom Auto Kits are installed and Discord is configured.",
   "games": ["rust"],
   "language": "csharp",
@@ -77,13 +78,15 @@
   "compatibility": {
     "oxide": "2.x",
     "oxide_minimum": "2.0.7022",
-    "game_versions": ["latest"]
+    "oxide_verified_through": "2.0.7245",
+    "game_versions": ["latest"],
+    "notes": "Verified against the current Facepunch Rust release and Oxide.Rust 2.0.7245. Uses only Covalence (IPlayer) types with no direct Assembly-CSharp references, so the plugin is unaffected by monthly Rust force-wipe updates."
   },
   "security": {
     "network": [
       "https://discord.com/api/*"
     ],
-    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). DiscordApiBase is validated to begin with 'https://discord.com' at load time to prevent SSRF. Bot token is stored in the Oxide config file. Restrict console and RCON access to prevent token exposure when using /nitrodiscordbotlink."
+    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). DiscordApiBase is validated to begin with 'https://discord.com' at load time to prevent SSRF. Bot token is stored in the Oxide config file. Restrict console and RCON access to prevent token exposure when using /nitrodiscordbotlink. /nitrodiscordbotlink now snapshots and restores live credentials on validation failure so a typo cannot put the running plugin into an unsaved bad-credential state."
   },
   "localization": {
     "default": "en",
@@ -125,6 +128,10 @@
     {
       "path": "CHANGELOG.md",
       "role": "changelog"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "role": "contributing"
     },
     {
       "path": "oxide/config/NitroBoostLinker.json",

@@ -1,5 +1,5 @@
 // NitroBoostLinker.cs
-// MIT License — (c) 2026 Gabriel Dungan (github.com/gjdunga)
+// MIT License — (c) 2026 Gabriel Dungan, DunganSoft Technologies (github.com/gjdunga)
 //
 // Grants the NitroBoost Oxide permission when a linked Discord user is actively
 // boosting the guild (premium_since) or has a configured Booster role.
@@ -16,8 +16,11 @@
 //     to prevent SSRF via a poisoned config file.
 //   - HTTP response bodies are NOT written to logs even in debug mode; only the
 //     HTTP status code is logged to avoid leaking Discord user PII.
-//   - Verification codes are generated with RNGCryptoServiceProvider over an
+//   - Verification codes are generated with RandomNumberGenerator over an
 //     alphabet of length 32 (divides 256 evenly — zero modulo bias).
+//   - /nitrodiscordbotlink snapshots the previous credentials and restores them
+//     on validation failure so an admin typo cannot leave the live plugin running
+//     with credentials that were never written to disk.
 
 using System;
 using System.Collections.Generic;
@@ -33,7 +36,7 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("Nitro Boost Linker", "Gabriel", "1.5.6")]
+    [Info("Nitro Boost Linker", "Gabriel Dungan of DunganSoft Technologies", "1.6.0")]
     [Description("Grants NitroBoost permission when a linked Discord user is boosting or has a Booster role. Hard-fails on missing prerequisites. Includes /nitrodiag and verbose logging.")]
     public class NitroBoostLinker : CovalencePlugin
     {
@@ -41,8 +44,8 @@ namespace Oxide.Plugins
         // CONSTANTS
         // ─────────────────────────────────────────────────────────────────────────
 
-        private const string DisplayVersion = "1.5.6";
-        private const string DisplayAuthor  = "Gabriel — MIT License";
+        private const string DisplayVersion = "1.6.0";
+        private const string DisplayAuthor  = "Gabriel Dungan / DunganSoft Technologies — MIT License";
 
         private const string UrlImageLibrary = "https://umod.org/plugins/image-library";
         private const string UrlRustKits     = "https://umod.org/plugins/rust-kits";
@@ -900,7 +903,10 @@ namespace Oxide.Plugins
             }
 
             int count = 0;
-            foreach (KeyValuePair<string, LinkRecord> kv in _linked)
+            // Snapshot keys before iterating: ResyncPlayer dispatches an async HTTP
+            // callback, and matching ScheduleRevalidation's pattern keeps the iteration
+            // safe if future revisions ever mutate _linked from inside the callback.
+            foreach (KeyValuePair<string, LinkRecord> kv in _linked.ToArray())
             {
                 ResyncPlayer(kv.Key, null);
                 count++;
@@ -941,6 +947,15 @@ namespace Oxide.Plugins
             // Security warning: token will appear in Oxide's server console log verbatim
             Puts(lang.GetMessage(Msg.TokenWarning, this, null));
 
+            // SECURITY: Snapshot existing credentials so we can roll back on validation
+            // failure. Without this, an admin typo would leave the live plugin using
+            // unsaved bad credentials until the next reload, even though the disk file
+            // still contains the previously-valid values.
+            string previousToken    = _config.DiscordBotToken;
+            ulong  previousGuildId  = _config.DiscordGuildId;
+            ulong  previousRoleId   = _config.BoosterRoleId;
+            string previousRoleName = _config.BoosterRoleName;
+
             _config.DiscordBotToken = args[0];
             _config.DiscordGuildId  = newGuildId;
 
@@ -962,8 +977,13 @@ namespace Oxide.Plugins
             {
                 if (!ok)
                 {
+                    _config.DiscordBotToken = previousToken;
+                    _config.DiscordGuildId  = previousGuildId;
+                    _config.BoosterRoleId   = previousRoleId;
+                    _config.BoosterRoleName = previousRoleName;
+
                     player?.Reply(lang.GetMessage(Msg.BotLinkFailed, this, player?.Id));
-                    LogFailure("[NitroBoostLinker] Discord validation failed during /nitrodiscordbotlink.");
+                    LogFailure("[NitroBoostLinker] Discord validation failed during /nitrodiscordbotlink. Live credentials restored to previous values.");
                     return;
                 }
 
@@ -1363,6 +1383,11 @@ namespace Oxide.Plugins
         /// Generates a cryptographically random verification code from CodeAlphabet.
         /// CodeAlphabet.Length == 32, which divides 256 evenly — zero modulo bias.
         /// Length is clamped to [4, MaxCodeLength] before use.
+        ///
+        /// Uses RandomNumberGenerator.Create() rather than the older RNGCryptoServiceProvider
+        /// constructor — the latter is marked obsolete starting in .NET 6 and triggers
+        /// SYSLIB0023 warnings. The factory method works on every Oxide-supported .NET
+        /// target (.NET Framework 4.x, .NET Standard 2.0/2.1, .NET 6+).
         /// </summary>
         private string GenerateCode(int length)
         {
@@ -1370,7 +1395,7 @@ namespace Oxide.Plugins
             var bytes  = new byte[length];
             var result = new StringBuilder(length);
 
-            using (var rng = new RNGCryptoServiceProvider())
+            using (var rng = RandomNumberGenerator.Create())
                 rng.GetBytes(bytes);
 
             foreach (byte b in bytes)
