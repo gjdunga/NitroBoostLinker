@@ -6,7 +6,13 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 
 ---
 
-## 1.6.0 -- 2026-05-17
+## 5.4.0 -- 2026-05-17
+
+> **Versioning note.** This release jumps from 1.5.6 to 5.4.0. The earlier
+> 1.x sequence was a mis-versioning by the author; the project now adopts
+> 5.4.0 as the corrected version line going forward. No code or data
+> migration is required — the bump is purely a numbering correction.
+
 
 ### Project metadata
 
@@ -56,7 +62,7 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 - `CONTRIBUTING.md` added: ground rules, versioning policy, local development
   loop, full test checklist, locale-add procedure, config-key procedure,
   command-add procedure, and security-disclosure process.
-- `CHANGELOG.md` (this file) reorganized with a maintainer line and dated 1.6.0
+- `CHANGELOG.md` (this file) reorganized with a maintainer line and dated 5.4.0
   entry.
 
 ---
