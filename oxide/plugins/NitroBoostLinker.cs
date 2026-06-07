@@ -36,7 +36,7 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("Nitro Boost Linker", "gjdunga", "5.4.2")]
+    [Info("Nitro Boost Linker", "gjdunga", "5.4.3")]
     [Description("Grants NitroBoost permission when a linked Discord user is boosting or has a Booster role. Hard-fails on missing prerequisites. Includes /nitrodiag and verbose logging.")]
     public class NitroBoostLinker : CovalencePlugin
     {
@@ -44,7 +44,7 @@ namespace Oxide.Plugins
         // CONSTANTS
         // ─────────────────────────────────────────────────────────────────────────
 
-        private const string DisplayVersion = "5.4.2";
+        private const string DisplayVersion = "5.4.3";
         private const string DisplayAuthor  = "Gabriel Dungan / DunganSoft Technologies — MIT License";
 
         private const string UrlImageLibrary = "https://umod.org/plugins/image-library";

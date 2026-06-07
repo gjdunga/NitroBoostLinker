@@ -6,6 +6,16 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 
 ---
 
+## 5.4.3 -- 2026-06-07
+
+### Changed (DunganSoft Plugin Standard)
+- Adopted the shared [DunganSoft Plugin Standard](https://github.com/gjdunga/rust-plugin-standard):
+  unified `manifest.json` + `.umod.yaml` to the canonical schema (`author_handle`,
+  `tags`, structured `links`; `dependencies` retained), added `SECURITY.md`,
+  `.editorconfig`, `.gitattributes`, vendored `tools/check-standard.py`, and added
+  `standards.yml` + a canonical `draft-release-on-tag.yml` (replacing manual
+  releases). No code, config, or hook changes.
+
 ## 5.4.2 -- 2026-06-06
 
 ### Localization
