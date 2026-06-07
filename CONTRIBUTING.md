@@ -4,7 +4,7 @@ Thanks for taking the time to help out. This file covers the conventions used in
 project, how to test changes locally against a real Rust + Oxide server, the
 locale-file format, and how to disclose security issues responsibly.
 
-> Maintainer: Gabriel Dungan, DunganSoft Technologies — MIT licensed.
+> Maintainer: Gabriel Dungan, DunganSoft Technologies — GPL-3.0 licensed.
 
 ---
 

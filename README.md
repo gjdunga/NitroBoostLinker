@@ -10,9 +10,9 @@ or holds a configured Booster role. While the player qualifies, the plugin grant
 can unlock VIP kits, perks, or commands for them.
 
 - **Maintainer:** Gabriel Dungan, DunganSoft Technologies
-- **License:** MIT
+- **License:** GPL-3.0
 - **Repository:** <https://github.com/gjdunga/NitroBoostLinker>
-- **Current release:** **v5.4.3** — see [CHANGELOG.md](CHANGELOG.md)
+- **Current release:** **v5.4.4** — see [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
