@@ -1,10 +1,23 @@
-*.user
-*.suo
-*.csproj
+# Compile-chain reference assemblies (downloaded; proprietary game files)
+/references/
+/.steamcmd/
+
+# Build output
 bin/
 obj/
+build/bin/
+build/obj/
+
+# Logs / temp
+*.log
+*.tmp
+
+# Editor / IDE
 .vscode/
 .idea/
-*.tmp
-*.log
-oxide/logs/
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
