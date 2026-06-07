@@ -6,6 +6,15 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 
 ---
 
+## 5.4.2 -- 2026-06-06
+
+### Localization
+- Added German (`de`), French (`fr`), Portuguese (`pt`) and Simplified Chinese
+  (`zh-CN`) translations. The plugin now ships all eight locales: `en`, `es`, `ru`,
+  `la`, `zh-CN`, `de`, `fr`, `pt`. All `{placeholder}` tokens and command literals
+  (`/nitrolink`, `/nitroverify`, `/nitrostatus`, `/nitrodiscordbotlink`) are
+  preserved in every locale. No code, config, or hook changes.
+
 ## 5.4.1 -- 2026-06-06
 
 ### Changed (uMod submission prep)
