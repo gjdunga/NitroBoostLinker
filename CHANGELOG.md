@@ -6,6 +6,23 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 
 ---
 
+## 5.4.1 -- 2026-06-06
+
+### Changed (uMod submission prep)
+- `[Info]` author set to the uMod username `gjdunga` (uMod approval requires the
+  author attribute to be the submitting account's username). Display credit
+  (Gabriel Dungan, DunganSoft Technologies) is retained in the source header,
+  README, manifest, and the in-game diagnostics output.
+
+### Build / tooling
+- Added an out-of-server compile-validation chain (`build/NitroBoostLinker.csproj`,
+  `tools/fetch-references.{sh,ps1}`, `.github/workflows/compile.yml`, `Makefile`,
+  `BUILD.md`) that type-checks the plugin against the real Oxide/Rust/Unity
+  assemblies on every push / PR. The csproj excludes the bundled `Oxide.References`
+  facade to avoid a `Newtonsoft.Json` `JsonProperty` collision (CS0433).
+
+No gameplay, configuration, hook, or data-format changes. Drop-in compatible with 5.4.0.
+
 ## 5.4.0 -- 2026-05-17
 
 > **Versioning note.** This release jumps from 1.5.6 to 5.4.0. The earlier
