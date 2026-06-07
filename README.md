@@ -12,7 +12,7 @@ can unlock VIP kits, perks, or commands for them.
 - **Maintainer:** Gabriel Dungan, DunganSoft Technologies
 - **License:** MIT
 - **Repository:** <https://github.com/gjdunga/NitroBoostLinker>
-- **Current release:** **v5.4.1** — see [CHANGELOG.md](CHANGELOG.md)
+- **Current release:** **v5.4.2** — see [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
