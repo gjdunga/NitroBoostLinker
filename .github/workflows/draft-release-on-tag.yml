@@ -1,0 +1,35 @@
+name: Draft release on version tag
+
+on:
+  push:
+    tags: [ 'v*.*.*', 'V*.*.*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  draft-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Stage release assets (lang files get unique, locale-suffixed names)
+        run: |
+          mkdir -p release-assets
+          cp "oxide/plugins/NitroBoostLinker.cs" release-assets/
+          for dir in oxide/lang/*/; do
+            loc="$(basename "$dir")"
+            src="${dir}NitroBoostLinker.json"
+            [ -f "$src" ] && cp "$src" "release-assets/NitroBoostLinker-${loc}.json"
+          done
+          [ -f "oxide/config/NitroBoostLinker.json" ] && cp "oxide/config/NitroBoostLinker.json" "release-assets/NitroBoostLinker-config.json" || true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Nitro Boost Linker ${{ github.ref_name }}
+          draft: true
+          generate_release_notes: true
+          files: |
+            release-assets/NitroBoostLinker.cs
+            release-assets/NitroBoostLinker-*.json

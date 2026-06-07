@@ -1,19 +1,20 @@
 {
   "name": "NitroBoostLinker",
   "title": "Nitro Boost Linker",
-  "version": "5.4.2",
-  "author": "Gabriel Dungan of DunganSoft Technologies",
-  "license": "MIT",
-  "contributing": "CONTRIBUTING.md",
+  "version": "5.4.3",
+  "author": "Gabriel Dungan (DunganSoft Technologies)",
+  "author_handle": "gjdunga",
   "description": "Grants the NitroBoost permission when a linked Discord user is actively boosting the guild (premium_since) or has a Booster role. Hard-fails unless Image Library + Rust Kits + Custom Auto Kits are installed and Discord is configured.",
-  "games": ["rust"],
+  "license": "MIT",
+  "game": "rust",
   "language": "csharp",
-  "website": "https://github.com/gjdunga/NitroBoostLinker",
-  "source": "https://github.com/gjdunga/NitroBoostLinker",
-  "documentation": "https://github.com/gjdunga/NitroBoostLinker#readme",
-  "issues": "https://github.com/gjdunga/NitroBoostLinker/issues",
-  "screenshots": [],
-  "categories": ["Administration", "Chat", "Economy", "Items", "Kits", "Permissions", "Discord"],
+  "tags": [
+    "administration",
+    "discord",
+    "kits",
+    "permissions",
+    "economy"
+  ],
   "permissions": [
     {
       "name": "NitroBoost",
@@ -21,121 +22,26 @@
     }
   ],
   "commands": [
-    {
-      "command": "nitrolink",
-      "arguments": "[DiscordUserID|help]",
-      "description": "Start Discord link flow (or show help). Available to all players."
-    },
-    {
-      "command": "nitroverify",
-      "arguments": "<CODE>",
-      "description": "Complete Discord link verification using the code DM'd by the bot."
-    },
-    {
-      "command": "nitrostatus",
-      "arguments": "",
-      "description": "Show the player's current link/boost status."
-    },
-    {
-      "command": "nitroresync",
-      "arguments": "[player]",
-      "description": "Admin only. Re-check boost/role status for one player or all linked players."
-    },
-    {
-      "command": "nitrodiscordbotlink",
-      "arguments": "<BotToken> <GuildId> [BoosterRoleId|RoleName]",
-      "description": "Admin/console/RCON. Configure Discord bot credentials at runtime without editing files."
-    },
-    {
-      "command": "nitrodiag",
-      "arguments": "",
-      "description": "Admin/console/RCON. Print dependency/config health and write to oxide/logs/NitroBoostLinker.txt."
-    }
-  ],
-  "dependencies": [
-    {
-      "name": "Image Library",
-      "id": "image-library",
-      "url": "https://umod.org/plugins/image-library",
-      "required": true,
-      "version": "latest"
-    },
-    {
-      "name": "Rust Kits",
-      "id": "rust-kits",
-      "url": "https://umod.org/plugins/rust-kits",
-      "required": true,
-      "version": "latest"
-    },
-    {
-      "name": "Custom Auto Kits",
-      "id": "custom-auto-kits",
-      "url": "https://umod.org/plugins/custom-auto-kits",
-      "required": true,
-      "version": "latest"
-    }
+    { "command": "nitrolink", "arguments": "[DiscordUserID|help]", "description": "Start the Discord link flow (or show help). Available to all players." },
+    { "command": "nitroverify", "arguments": "<CODE>", "description": "Complete Discord link verification using the code DM'd by the bot." },
+    { "command": "nitrostatus", "arguments": "", "description": "Show the player's current link/boost status." },
+    { "command": "nitroresync", "arguments": "[player]", "description": "Admin: re-check boost/role status for one player or all linked players." },
+    { "command": "nitrodiscordbotlink", "arguments": "<BotToken> <GuildId> [BoosterRoleId|RoleName]", "description": "Admin/console/RCON: configure Discord bot credentials at runtime." },
+    { "command": "nitrodiag", "arguments": "", "description": "Admin/console/RCON: print dependency/config health and write to oxide/logs/NitroBoostLinker.txt." }
   ],
   "compatibility": {
-    "oxide": "2.x",
     "oxide_minimum": "2.0.7022",
-    "oxide_verified_through": "2.0.7245",
-    "game_versions": ["latest"],
-    "notes": "Verified against the current Facepunch Rust release and Oxide.Rust 2.0.7245. Uses only Covalence (IPlayer) types with no direct Assembly-CSharp references, so the plugin is unaffected by monthly Rust force-wipe updates."
+    "oxide_verified": "2.0.7423"
   },
-  "security": {
-    "network": [
-      "https://discord.com/api/*"
-    ],
-    "notes": "Uses Discord Bot token for REST calls (guild/member lookup and DMs). DiscordApiBase is validated to begin with 'https://discord.com' at load time to prevent SSRF. Bot token is stored in the Oxide config file. Restrict console and RCON access to prevent token exposure when using /nitrodiscordbotlink. /nitrodiscordbotlink now snapshots and restores live credentials on validation failure so a typo cannot put the running plugin into an unsaved bad-credential state."
-  },
-  "localization": {
-    "default": "en",
-    "supported": ["en", "ru", "es", "la"]
-  },
-  "files": [
-    {
-      "path": "oxide/plugins/NitroBoostLinker.cs",
-      "role": "plugin"
-    },
-    {
-      "path": "oxide/lang/en/NitroBoostLinker.json",
-      "role": "lang"
-    },
-    {
-      "path": "oxide/lang/ru/NitroBoostLinker.json",
-      "role": "lang"
-    },
-    {
-      "path": "oxide/lang/es/NitroBoostLinker.json",
-      "role": "lang"
-    },
-    {
-      "path": "oxide/lang/la/NitroBoostLinker.json",
-      "role": "lang"
-    },
-    {
-      "path": "LICENSE",
-      "role": "license"
-    },
-    {
-      "path": "README.md",
-      "role": "readme"
-    },
-    {
-      "path": "INSTALL.md",
-      "role": "documentation"
-    },
-    {
-      "path": "CHANGELOG.md",
-      "role": "changelog"
-    },
-    {
-      "path": "CONTRIBUTING.md",
-      "role": "contributing"
-    },
-    {
-      "path": "oxide/config/NitroBoostLinker.json",
-      "role": "config-sample"
-    }
-  ]
+  "dependencies": [
+    { "name": "Image Library", "url": "https://umod.org/plugins/image-library", "required": true },
+    { "name": "Rust Kits", "url": "https://umod.org/plugins/rust-kits", "required": true },
+    { "name": "Custom Auto Kits", "url": "https://umod.org/plugins/custom-auto-kits", "required": true }
+  ],
+  "links": {
+    "source": "https://github.com/gjdunga/NitroBoostLinker",
+    "documentation": "https://github.com/gjdunga/NitroBoostLinker#readme",
+    "issues": "https://github.com/gjdunga/NitroBoostLinker/issues",
+    "website": "https://github.com/gjdunga/NitroBoostLinker"
+  }
 }
