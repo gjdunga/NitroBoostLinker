@@ -1,6 +1,6 @@
 name: NitroBoostLinker
 title: Nitro Boost Linker
-version: 5.4.3
+version: 5.4.4
 author: Gabriel Dungan (DunganSoft Technologies)
 author_handle: gjdunga
 description: >-
@@ -9,7 +9,7 @@ description: >-
   Rust Kits and Custom Auto Kits are installed and Discord is configured.
 game: rust
 language: C#
-license: MIT
+license: GPL-3.0
 tags:
   - administration
   - discord

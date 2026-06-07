@@ -6,6 +6,14 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 
 ---
 
+## 5.4.4 -- 2026-06-07
+
+### Changed
+- **License changed from MIT to GPL-3.0.** `LICENSE`, `manifest.json`, `.umod.yaml`,
+  the source header, and the in-game diagnostics author line now reference the GNU
+  General Public License v3.0. Versions up to 5.4.3 remain available under MIT (not
+  retroactive); this and future versions are GPL-3.0. No code, config, or hook changes.
+
 ## 5.4.3 -- 2026-06-07
 
 ### Changed (DunganSoft Plugin Standard)
