@@ -36,7 +36,7 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("Nitro Boost Linker", "gjdunga", "5.4.4")]
+    [Info("Nitro Boost Linker", "gjdunga", "6.0.0")]
     [Description("Grants NitroBoost permission when a linked Discord user is boosting or has a Booster role. Hard-fails on missing prerequisites. Includes /nitrodiag and verbose logging.")]
     public class NitroBoostLinker : CovalencePlugin
     {

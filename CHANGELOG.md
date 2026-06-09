@@ -6,6 +6,15 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 
 ---
 
+## 6.0.0 - 2026-06-09
+
+### Changed
+- Version aligned to a whole-number release (5.4.4 -> 6.0.0). No functional changes.
+
+### Security
+- Release is code-signed: a detached OpenPGP signature (`NitroBoostLinker.cs.asc`) and the public
+  key (`gjdunga.asc`) are attached and verifiable.
+
 ## 5.4.4 -- 2026-06-07
 
 ### Changed
