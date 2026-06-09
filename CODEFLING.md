@@ -39,6 +39,17 @@ Grants the NitroBoost permission when a linked Discord user is actively boosting
 3. The plugin compiles and loads automatically; a default config is written to `oxide/config/NitroBoostLinker.json` on first load.
 4. Install the required dependencies listed above first.
 
+## Verifying the download
+
+This plugin is **code-signed**. Every release attaches a detached OpenPGP signature (`NitroBoostLinker.cs.asc`) and the public key (`gjdunga.asc`):
+
+```bash
+gpg --import gjdunga.asc   # fingerprint EAC0A2AE65CC6C9762DD6AF06877843761D5C6E6
+gpg --verify NitroBoostLinker.cs.asc NitroBoostLinker.cs
+```
+
+Expect: `Good signature from "Gabriel Dungan <gjdunga@gmail.com>"`.
+
 ## What's new in 5.4.4
 
 ### Changed
