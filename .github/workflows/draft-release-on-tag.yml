@@ -18,6 +18,9 @@ jobs:
         run: |
           mkdir -p release-assets
           cp "oxide/plugins/NitroBoostLinker.cs" release-assets/
+          # Detached signature + public key (DunganSoft Plugin Standard §11), when present.
+          [ -f "oxide/plugins/NitroBoostLinker.cs.asc" ] && cp "oxide/plugins/NitroBoostLinker.cs.asc" release-assets/ || true
+          [ -f "keys/gjdunga.asc" ] && cp "keys/gjdunga.asc" release-assets/ || true
           for dir in oxide/lang/*/; do
             loc="$(basename "$dir")"
             src="${dir}NitroBoostLinker.json"
@@ -32,4 +35,6 @@ jobs:
           generate_release_notes: true
           files: |
             release-assets/NitroBoostLinker.cs
+            release-assets/NitroBoostLinker.cs.asc
+            release-assets/gjdunga.asc
             release-assets/NitroBoostLinker-*.json
