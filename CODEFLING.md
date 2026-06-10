@@ -5,7 +5,7 @@
 > the screenshots and confirm the price before publishing. Regenerate on each release.
 
 - **Title:** Nitro Boost Linker
-- **Version:** 5.4.4
+- **Version:** 6.0.0
 - **Price:** Free
 - **Tags:** administration, discord, kits, permissions, economy
 - **Compatibility:** Oxide **2.0.7022+** (verified 2.0.7423)
@@ -50,13 +50,14 @@ gpg --verify NitroBoostLinker.cs.asc NitroBoostLinker.cs
 
 Expect: `Good signature from "Gabriel Dungan <gjdunga@gmail.com>"`.
 
-## What's new in 5.4.4
+## What's new in 6.0.0
 
 ### Changed
-- **License changed from MIT to GPL-3.0.** `LICENSE`, `manifest.json`, `.umod.yaml`,
-  the source header, and the in-game diagnostics author line now reference the GNU
-  General Public License v3.0. Versions up to 5.4.3 remain available under MIT (not
-  retroactive); this and future versions are GPL-3.0. No code, config, or hook changes.
+- Version aligned to a whole-number release (5.4.4 -> 6.0.0). No functional changes.
+
+### Security
+- Release is code-signed: a detached OpenPGP signature (`NitroBoostLinker.cs.asc`) and the public
+  key (`gjdunga.asc`) are attached and verifiable.
 
 ## Links
 
