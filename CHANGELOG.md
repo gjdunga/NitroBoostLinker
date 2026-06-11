@@ -6,6 +6,11 @@ Maintainer: Gabriel Dungan, DunganSoft Technologies.
 
 ---
 
+## 6.0.1 - 2026-06-11
+
+### Fixed
+- The version shown in `/nitrodiag` and `/nitrolink help` now derives from the plugin version (was a hardcoded constant that lagged the release). No functional changes.
+
 ## 6.0.0 - 2026-06-09
 
 ### Changed

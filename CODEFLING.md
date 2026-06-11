@@ -5,7 +5,7 @@
 > the screenshots and confirm the price before publishing. Regenerate on each release.
 
 - **Title:** Nitro Boost Linker
-- **Version:** 6.0.0
+- **Version:** 6.0.1
 - **Price:** Free
 - **Tags:** administration, discord, kits, permissions, economy
 - **Compatibility:** Oxide **2.0.7022+** (verified 2.0.7423)
@@ -50,14 +50,10 @@ gpg --verify NitroBoostLinker.cs.asc NitroBoostLinker.cs
 
 Expect: `Good signature from "Gabriel Dungan <gjdunga@gmail.com>"`.
 
-## What's new in 6.0.0
+## What's new in 6.0.1
 
-### Changed
-- Version aligned to a whole-number release (5.4.4 -> 6.0.0). No functional changes.
-
-### Security
-- Release is code-signed: a detached OpenPGP signature (`NitroBoostLinker.cs.asc`) and the public
-  key (`gjdunga.asc`) are attached and verifiable.
+### Fixed
+- The version shown in `/nitrodiag` and `/nitrolink help` now derives from the plugin version (was a hardcoded constant that lagged the release). No functional changes.
 
 ## Links
 

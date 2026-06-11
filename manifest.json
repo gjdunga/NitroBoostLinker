@@ -1,7 +1,7 @@
 {
   "name": "NitroBoostLinker",
   "title": "Nitro Boost Linker",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "author": "Gabriel Dungan (DunganSoft Technologies)",
   "author_handle": "gjdunga",
   "description": "Grants the NitroBoost permission when a linked Discord user is actively boosting the guild (premium_since) or has a Booster role. Hard-fails unless Image Library + Rust Kits + Custom Auto Kits are installed and Discord is configured.",
